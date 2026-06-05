@@ -199,6 +199,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* ── SECTION TITLE ── */
 .section-title{font-family:'Syne',sans-serif;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:1.5rem 0 .75rem;}
 
+/* ── DRAWER ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;}
+.drawer-overlay.open{opacity:1;pointer-events:all;}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:95vw;background:var(--surface);border-left:1px solid var(--border-glow);z-index:201;transform:translateX(100%);transition:transform .28s cubic-bezier(.22,1,.36,1);display:flex;flex-direction:column;}
+.drawer.open{transform:translateX(0);}
+.drawer-header{padding:1.4rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-shrink:0;}
+.drawer-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;}
+.drawer-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.drawer-close{background:rgba(255,255,255,.07);border:none;border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s;}
+.drawer-close:hover{background:rgba(255,255,255,.12);color:var(--text);}
+.drawer-body{flex:1;overflow-y:auto;padding:1rem 1.5rem;}
+.drawer-body::-webkit-scrollbar{width:3px;}
+.drawer-body::-webkit-scrollbar-thumb{background:var(--purple);border-radius:2px;}
+.drawer-card{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:1rem 1.1rem;margin-bottom:.7rem;cursor:pointer;transition:border-color .15s;}
+.drawer-card:hover{border-color:var(--border-glow);}
+.drawer-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;}
+.drawer-card-name{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;}
+.drawer-card-val{font-weight:700;color:var(--green);font-family:'Syne',sans-serif;}
+.drawer-card-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:.3rem;}
+.drawer-tag{font-size:10px;color:var(--muted);background:rgba(255,255,255,.05);border-radius:4px;padding:2px 7px;}
+.drawer-expanded{margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.drawer-field{font-size:11px;}
+.drawer-field-label{color:var(--muted);margin-bottom:2px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;}
+.drawer-field-value{color:var(--text);line-height:1.5;}
+
+/* clickable rows/bars */
+.clickable-row{cursor:pointer;transition:all .15s;}
+.clickable-row:hover td{background:rgba(155,107,255,.08)!important;}
+.clickable-row:hover td:first-child{color:var(--purple-bright);}
+.bar-item.clickable{cursor:pointer;padding:4px 6px;border-radius:7px;margin-left:-6px;margin-right:-6px;transition:background .15s;}
+.bar-item.clickable:hover{background:rgba(155,107,255,.08);}
+.stat-card.clickable{cursor:pointer;transition:all .2s;}
+.stat-card.clickable:hover{border-color:var(--border-glow);transform:translateY(-2px);}
+
 @media(max-width:900px){
   .shell{grid-template-columns:1fr;}
   .sidebar{height:auto;position:relative;flex-direction:row;flex-wrap:wrap;padding:1rem;}
@@ -206,8 +240,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   .grid2,.grid3{grid-template-columns:1fr;}
   .cli-grid{grid-template-columns:1fr;}
   .sprint-row{grid-template-columns:70px 1fr 70px 70px;}
+  .drawer{width:100vw;}
 }
 </style>
+
+<!-- DRAWER OVERLAY -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-title" id="drawer-title">—</div>
+      <div class="drawer-sub" id="drawer-sub">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
 </head>
 <body>
 <div class="shell">
@@ -904,13 +954,11 @@ function renderCanais() {
 
   const rec = rows.reduce((s,r) => s+r.val, 0);
 
-  // por canal
   const canais = {};
   rows.forEach(r => { canais[r.canal] = (canais[r.canal]||0)+r.val; });
   const cEntries = Object.entries(canais).sort((a,b)=>b[1]-a[1]);
   const maxC = cEntries[0]?cEntries[0][1]:1;
 
-  // por produto
   const prods = {};
   rows.forEach(r => { prods[r.prod] = (prods[r.prod]||0)+r.val; });
   const pEntries = Object.entries(prods).sort((a,b)=>b[1]-a[1]);
@@ -919,29 +967,43 @@ function renderCanais() {
   const barColors = ['#9B6BFF','#4ade80','#60a5fa','#fbbf24','#f87171','#f472b6'];
 
   document.getElementById('pg-canais').innerHTML = `
-    <div class="stats-row" style="grid-template-columns:repeat(${Math.min(Object.keys(canais).length,4)},1fr)">
-      ${cEntries.slice(0,4).map(([c,v],i) => `
-      <div class="stat-card">
-        <div class="stat-label">${c}</div>
-        <div class="stat-value" style="color:${barColors[i]};font-size:1.4rem;">R$${fmtK(v).replace('R$','')}</div>
-        <div class="stat-sub">${Math.round(v/rec*100)}% da receita</div>
-      </div>`).join('')}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:6px;">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 15l6 6m-11-4a7 7 0 110-14 7 7 0 010 14z"/></svg>
+      Clique em qualquer canal, produto ou linha da tabela para ver os clientes detalhados
+    </div>
+
+    <div class="stats-row" style="grid-template-columns:repeat(${Math.min(cEntries.length,4)},1fr)">
+      ${cEntries.slice(0,4).map(([c,v],i) => {
+        const cnt = rows.filter(r=>r.canal===c).length;
+        return `<div class="stat-card clickable" onclick="openDrawer('canal','${c.replace(/'/g,"\\'")}')">
+          <div class="stat-label">${c}</div>
+          <div class="stat-value" style="color:${barColors[i]};font-size:1.4rem;">R$${fmtK(v).replace('R$','')}</div>
+          <div class="stat-sub">${cnt} cliente${cnt!==1?'s':''} · ${Math.round(v/rec*100)}% da receita</div>
+          <div style="font-size:10px;color:var(--purple-bright);margin-top:6px;">Ver clientes →</div>
+        </div>`;
+      }).join('')}
     </div>
 
     <div class="grid2">
       <div class="card">
-        <div class="card-title">Receita por Canal</div>
+        <div class="card-title">Receita por Canal <span style="font-weight:400;opacity:.5;font-size:9px;margin-left:4px;">· clique para detalhar</span></div>
         ${cEntries.map(([c,v],i) => `
-        <div class="bar-item">
-          <div class="bar-head"><span>${c}</span><span class="bar-val">R$${fmt(v)}</span></div>
+        <div class="bar-item clickable" onclick="openDrawer('canal','${c.replace(/'/g,"\\'")}')">
+          <div class="bar-head">
+            <span style="display:flex;align-items:center;gap:6px;">${c} <span style="font-size:10px;color:var(--muted);">${rows.filter(r=>r.canal===c).length} clientes</span></span>
+            <span class="bar-val">R$${fmt(v)}</span>
+          </div>
           <div class="pb"><div class="pf" style="width:${Math.round(v/maxC*100)}%;background:${barColors[i%barColors.length]};"></div></div>
         </div>`).join('')}
       </div>
       <div class="card">
-        <div class="card-title">Receita por Produto</div>
+        <div class="card-title">Receita por Produto <span style="font-weight:400;opacity:.5;font-size:9px;margin-left:4px;">· clique para detalhar</span></div>
         ${pEntries.map(([p,v],i) => `
-        <div class="bar-item">
-          <div class="bar-head"><span>${p}</span><span class="bar-val">R$${fmt(v)}</span></div>
+        <div class="bar-item clickable" onclick="openDrawer('produto','${p.replace(/'/g,"\\'")}')">
+          <div class="bar-head">
+            <span style="display:flex;align-items:center;gap:6px;">${p} <span style="font-size:10px;color:var(--muted);">${rows.filter(r=>r.prod===p).length} clientes</span></span>
+            <span class="bar-val">R$${fmt(v)}</span>
+          </div>
           <div class="pb"><div class="pf" style="width:${Math.round(v/maxP*100)}%;background:${barColors[i%barColors.length]};"></div></div>
         </div>`).join('')}
       </div>
@@ -952,23 +1014,116 @@ function renderCanais() {
       <div class="tbl-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>Canal</th><th>Qtd Clientes</th><th>Receita</th><th>Ticket Médio</th><th>% Receita</th>
+            <th>Canal</th><th>Qtd Clientes</th><th>Receita</th><th>Ticket Médio</th><th>% Receita</th><th></th>
           </tr></thead>
           <tbody>
-            ${cEntries.map(([c,v]) => {
+            ${cEntries.map(([c,v],ci) => {
               const cnt = rows.filter(r=>r.canal===c).length;
-              return `<tr>
+              return `<tr class="clickable-row" onclick="openDrawer('canal','${c.replace(/'/g,"\\'")}')">
                 <td><span class="badge b-purple">${c}</span></td>
-                <td>${cnt}</td>
+                <td style="font-weight:600;">${cnt}</td>
                 <td style="font-weight:600;color:var(--green);">R$${fmt(v)}</td>
                 <td class="muted">R$${fmt(v/cnt)}</td>
                 <td class="muted">${Math.round(v/rec*100)}%</td>
+                <td style="color:var(--purple-bright);font-size:11px;">Ver →</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title">Clientes por Produto</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>Produto</th><th>Qtd Clientes</th><th>Receita</th><th>Ticket Médio</th><th>% Receita</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${pEntries.map(([p,v]) => {
+              const cnt = rows.filter(r=>r.prod===p).length;
+              return `<tr class="clickable-row" onclick="openDrawer('produto','${p.replace(/'/g,"\\'")}')">
+                <td style="font-size:13px;">${p}</td>
+                <td style="font-weight:600;">${cnt}</td>
+                <td style="font-weight:600;color:var(--green);">R$${fmt(v)}</td>
+                <td class="muted">R$${fmt(v/cnt)}</td>
+                <td class="muted">${Math.round(v/rec*100)}%</td>
+                <td style="color:var(--purple-bright);font-size:11px;">Ver →</td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
     </div>`;
+}
+
+// ── DRAWER ───────────────────────────────────────────────────────
+let drawerExpanded = {};
+
+function openDrawer(tipo, valor) {
+  drawerExpanded = {};
+  const rows = getData();
+  const filtered = tipo === 'canal'
+    ? rows.filter(r => r.canal === valor)
+    : rows.filter(r => r.prod === valor);
+
+  const total = filtered.reduce((s,r) => s+r.val, 0);
+  const cnt = filtered.length;
+
+  document.getElementById('drawer-title').textContent =
+    (tipo === 'canal' ? '📡 Canal: ' : '📦 Produto: ') + valor;
+  document.getElementById('drawer-sub').textContent =
+    `${cnt} cliente${cnt!==1?'s':''} · Receita total: R$${fmt(total)} · Ticket médio: R$${fmt(cnt?total/cnt:0)}`;
+
+  renderDrawerBody(filtered);
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+
+function renderDrawerBody(filtered) {
+  document.getElementById('drawer-body').innerHTML = filtered.length
+    ? filtered.map((r, i) => {
+        const isOpen = drawerExpanded[i];
+        return `<div class="drawer-card" onclick="toggleDrawerCard(${i})">
+          <div class="drawer-card-top">
+            <span class="drawer-card-name">${r.nome}</span>
+            <span class="drawer-card-val">R$${fmt(r.val)}</span>
+          </div>
+          <div class="drawer-card-row">
+            ${r._vendedor ? `<span class="drawer-tag">👤 ${r._vendedor}</span>` : ''}
+            <span class="drawer-tag">📡 ${r.canal}</span>
+            <span class="drawer-tag">📦 ${r.prod}</span>
+          </div>
+          ${isOpen ? `
+          <div class="drawer-expanded">
+            ${r.tel ? `<div class="drawer-field"><div class="drawer-field-label">Telefone</div><div class="drawer-field-value">${r.tel}</div></div>` : ''}
+            ${r.email ? `<div class="drawer-field"><div class="drawer-field-label">E-mail</div><div class="drawer-field-value" style="word-break:break-all;">${r.email}</div></div>` : ''}
+            ${r.acao ? `<div class="drawer-field" style="grid-column:1/-1"><div class="drawer-field-label">Ação que levou ao fechamento</div><div class="drawer-field-value">${r.acao}</div></div>` : ''}
+          </div>` : `<div style="font-size:10px;color:var(--purple-bright);margin-top:.5rem;">Clique para expandir detalhes</div>`}
+        </div>`;
+      }).join('')
+    : `<div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;">Nenhum cliente encontrado</div>`;
+}
+
+function toggleDrawerCard(i) {
+  drawerExpanded[i] = !drawerExpanded[i];
+  // re-render body without closing drawer
+  const rows = getData();
+  const title = document.getElementById('drawer-title').textContent;
+  const isByCanal = title.startsWith('📡');
+  const valor = title.replace('📡 Canal: ','').replace('📦 Produto: ','');
+  const filtered = isByCanal
+    ? rows.filter(r => r.canal === valor)
+    : rows.filter(r => r.prod === valor);
+  renderDrawerBody(filtered);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
 }
 
 // ── UTILS ────────────────────────────────────────────────────────
