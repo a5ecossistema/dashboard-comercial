@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Comercial · A5 Ecossistema</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07060f;
+  --surface:#0f0d1c;
+  --surface2:#161428;
+  --border:rgba(255,255,255,0.07);
+  --border-glow:rgba(107,47,224,0.35);
+  --purple:#7B3FF5;
+  --purple-bright:#9B6BFF;
+  --purple-dim:rgba(107,47,224,0.12);
+  --text:#f2eeff;
+  --muted:#8a85a0;
+  --accent:#c4b0ff;
+  --green:#4ade80;
+  --yellow:#fbbf24;
+  --red:#f87171;
+  --blue:#60a5fa;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── LAYOUT ── */
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  background:rgba(10,7,22,0.98);
+  border-right:1px solid var(--border);
+  padding:1.75rem 1.25rem;
+  display:flex;flex-direction:column;gap:2px;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem;}
+.logo svg{filter:drop-shadow(0 0 8px rgba(107,47,224,0.8));}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:0.95rem;line-height:1.2;}
+.logo-sub{font-size:10px;color:var(--muted);font-weight:400;}
+.nav-section{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:1.25rem 10px 6px;opacity:.6;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.05);}
+.nav-item.active{color:var(--text);background:var(--purple-dim);border:1px solid var(--border-glow);}
+.nav-item svg{flex-shrink:0;opacity:.6;}
+.nav-item.active svg{opacity:1;}
+
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;min-height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:rgba(10,7,22,0.95);
+  border-bottom:1px solid var(--border);
+  padding:.9rem 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;backdrop-filter:blur(20px);
+  gap:1rem;flex-wrap:wrap;
+}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.topbar-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+/* selects */
+.sel-wrap{position:relative;}
+.sel-wrap select{
+  appearance:none;-webkit-appearance:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:7px 30px 7px 12px;font-size:12px;color:var(--text);
+  font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color .15s;
+}
+.sel-wrap select:focus{outline:none;border-color:var(--purple);}
+.sel-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted);pointer-events:none;}
+
+.btn-refresh{background:var(--purple);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.btn-refresh:hover{background:var(--purple-bright);transform:translateY(-1px);}
+.btn-refresh.spinning svg{animation:spin 1s linear infinite;}
+.last-sync{font-size:10px;color:var(--muted);}
+
+/* ── CONTENT ── */
+.content{padding:1.75rem 2rem;flex:1;}
+.page{display:none;animation:fadeUp .3s ease forwards;}
+.page.active{display:block;}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:1.2rem;position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--purple),transparent);}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;line-height:1;}
+.stat-value.green{color:var(--green);}
+.stat-value.yellow{color:var(--yellow);}
+.stat-value.red{color:var(--red);}
+.stat-value.purple{color:var(--purple-bright);}
+.stat-value.blue{color:var(--blue);}
+.stat-sub{font-size:10.5px;color:var(--muted);margin-top:5px;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1.2rem;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(155,107,255,.35),transparent);}
+.card-title{font-family:'Syne',sans-serif;font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem;}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+
+/* ── META CARD ── */
+.meta-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;}
+.meta-values{font-size:13px;color:var(--muted);}
+.meta-values strong{color:var(--text);font-weight:600;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;}
+.b-green{background:rgba(74,222,128,.15);color:var(--green);border:1px solid rgba(74,222,128,.3);}
+.b-yellow{background:rgba(251,191,36,.15);color:var(--yellow);border:1px solid rgba(251,191,36,.3);}
+.b-red{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.b-blue{background:rgba(96,165,250,.15);color:var(--blue);border:1px solid rgba(96,165,250,.3);}
+.b-purple{background:var(--purple-dim);color:var(--purple-bright);border:1px solid var(--border-glow);}
+
+.pb{background:rgba(255,255,255,.06);border-radius:99px;height:8px;overflow:hidden;margin:8px 0;}
+.pf{height:100%;border-radius:99px;transition:width 1s cubic-bezier(.22,1,.36,1);}
+
+.meta-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+.meta-input-row{display:flex;align-items:center;gap:8px;margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border);}
+.meta-input-row label{font-size:11px;color:var(--muted);}
+.meta-input-row input{
+  background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:5px 9px;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;width:120px;
+}
+.meta-input-row input:focus{outline:none;border-color:var(--purple);}
+
+/* ── SPRINTS ── */
+.sprint-row{display:grid;grid-template-columns:90px 1fr 90px 80px;gap:10px;align-items:center;margin-bottom:10px;}
+.sprint-lbl{font-size:12px;color:var(--muted);}
+.sprint-val{font-size:13px;font-weight:600;text-align:right;}
+
+/* ── FUNIL ── */
+.funil-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.funil-lbl{font-size:11px;color:var(--muted);width:85px;flex-shrink:0;text-align:right;}
+.funil-wrap{flex:1;background:rgba(255,255,255,.05);border-radius:99px;height:26px;overflow:hidden;}
+.funil-fill{height:100%;border-radius:99px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:600;min-width:30px;transition:width .8s cubic-bezier(.22,1,.36,1);}
+.funil-pct{font-size:11px;color:var(--muted);width:36px;text-align:right;flex-shrink:0;}
+
+/* ── BARS ── */
+.bar-item{margin-bottom:10px;}
+.bar-head{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;}
+.bar-val{font-weight:600;color:var(--text);font-family:'Syne',sans-serif;}
+
+/* ── TABELA ── */
+.tbl-wrap{overflow-x:auto;}
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.tbl td{font-size:12.5px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);vertical-align:top;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.tbl td.muted{color:var(--muted);}
+
+/* ── HIST SEARCH ── */
+.search-row{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+.search-row input{
+  background:var(--surface2);border:1px solid var(--border);border-radius:9px;
+  padding:8px 12px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;width:220px;
+}
+.search-row input:focus{outline:none;border-color:var(--purple);}
+.search-row input::placeholder{color:var(--muted);}
+
+/* ── CLIENTES DETAIL ── */
+.cli-grid{display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start;}
+.cli-list{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow-y:auto;padding-right:4px;}
+.cli-list::-webkit-scrollbar{width:3px;}
+.cli-list::-webkit-scrollbar-thumb{background:var(--purple);border-radius:2px;}
+.cli-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;cursor:pointer;transition:all .15s;}
+.cli-item:hover{border-color:var(--border-glow);background:var(--purple-dim);}
+.cli-item.active{border-color:var(--purple);background:var(--purple-dim);}
+.cli-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.cli-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.cli-val{font-size:12px;font-weight:600;color:var(--green);margin-top:3px;}
+.detail-card{background:var(--surface);border:1px solid var(--border-glow);border-radius:14px;padding:1.4rem;}
+.detail-row{margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);}
+.detail-row:last-child{border:none;margin:0;padding:0;}
+.detail-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;}
+.detail-value{font-size:13px;color:var(--text);line-height:1.6;}
+
+/* ── LOADING / EMPTY ── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 1rem;gap:1rem;}
+.spinner{width:40px;height:40px;border:2px solid rgba(155,107,255,.2);border-top-color:var(--purple-bright);border-radius:50%;animation:spin .9s linear infinite;}
+.loading-txt{font-family:'Syne',sans-serif;font-size:13px;color:var(--muted);}
+.empty{text-align:center;padding:4rem 1rem;}
+.empty-icon{font-size:2.5rem;margin-bottom:.75rem;opacity:.4;}
+.empty-title{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:var(--muted);}
+.empty-sub{font-size:12px;color:var(--muted);opacity:.7;margin-top:.4rem;}
+
+/* ── SECTION TITLE ── */
+.section-title{font-family:'Syne',sans-serif;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:1.5rem 0 .75rem;}
+
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr;}
+  .sidebar{height:auto;position:relative;flex-direction:row;flex-wrap:wrap;padding:1rem;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .grid2,.grid3{grid-template-columns:1fr;}
+  .cli-grid{grid-template-columns:1fr;}
+  .sprint-row{grid-template-columns:70px 1fr 70px 70px;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="logo">
+    <svg width="32" height="32" viewBox="800 380 320 320" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#9B6BFF" d="M1079.80884,462.01372h0a1.45307,1.45307,0,1,0-1.95936-2.14628h-.00018c-2.23063,1.273-4.49475,2.49207-6.6861,3.82965-10.02531,6.11762-19.53771,13.35117-30.14763,18.17891-20.62155,9.38335-33.54469,4.39148-44.63455-15.15517-8.63933-15.22672-17.29024-30.45625-26.355-45.43116-5.5942-9.24167-13.00661-9.29988-19.43338-.65932a84.33733,84.33733,0,0,0-5.0578,8.19307q-60.949,105.26069-121.8569,210.54522c-2.76737,4.785-5.43656,9.62743-8.51869,15.22041a5.9439,5.9439,0,0,0,5.70327,8.78785c.939-.07785,1.82066-.17394,2.69724-.303C866.6281,656.73253,904.17552,638.689,935.1629,608.218c46.61232-45.83587,92.60986-92.296,138.80713-138.552C1076.21749,467.41592,1077.876,464.57805,1079.80884,462.01372Z"/>
+      <path fill="#9B6BFF" d="M1105.65548,655.94556c-.5655-1.10822-1.12627-2.16523-1.72019-3.2033-10.4649-18.289-20.70641-36.71485-31.57357-54.76331-13.53687-22.48271-11.53735-44.06132,2.32286-65.43793a79.7163,79.7163,0,0,0,4.27417-8.17132.88772.88772,0,0,0-.69071-1.28427c-2.9678-.27425-4.76392.26724-5.94648,1.43086-13.24105,13.03344-27.3422,25.38161-39.12521,39.63619-7.01735,8.48976-13.38993,19.63152-14.79606,30.27458-6.55705,49.63045,31.7,77.72928,82.87862,70.07419A5.93954,5.93954,0,0,0,1105.65548,655.94556Z"/>
+    </svg>
+    <div class="logo-text">A5 Ecossistema<span class="logo-sub" style="display:block">Comercial Dashboard</span></div>
+  </div>
+
+  <div class="nav-section">Visão Geral</div>
+  <button class="nav-item active" id="nav-dashboard" onclick="goPage('dashboard',this)">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-item" id="nav-metas" onclick="goPage('metas',this)">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+    Metas & Sprints
+  </button>
+
+  <div class="nav-section">Operação</div>
+  <button class="nav-item" id="nav-clientes" onclick="goPage('clientes',this)">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Clientes
+  </button>
+  <button class="nav-item" id="nav-canais" onclick="goPage('canais',this)">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    Canais & Produtos
+  </button>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title" id="topbar-title">Dashboard Comercial</span>
+    </div>
+    <div class="topbar-right">
+      <div class="sel-wrap">
+        <select id="selVendedor" onchange="onFilterChange()">
+          <option value="all">Todos os vendedores</option>
+        </select>
+      </div>
+      <div class="sel-wrap">
+        <select id="selMes" onchange="onFilterChange()">
+          <option value="MAIO">Maio</option>
+          <option value="JUNHO">Junho</option>
+          <option value="JULHO">Julho</option>
+          <option value="AGOSTO">Agosto</option>
+          <option value="SETEMBRO">Setembro</option>
+          <option value="OUTUBRO">Outubro</option>
+          <option value="NOVEMBRO">Novembro</option>
+          <option value="DEZEMBRO">Dezembro</option>
+        </select>
+      </div>
+      <button class="btn-refresh" id="btn-refresh" onclick="loadAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+        Atualizar
+      </button>
+      <span class="last-sync" id="last-sync"></span>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="pg-dashboard">
+      <div class="loading"><div class="spinner"></div><div class="loading-txt">Carregando dados...</div></div>
+    </div>
+
+    <!-- ── METAS ── -->
+    <div class="page" id="pg-metas">
+      <div class="loading"><div class="spinner"></div><div class="loading-txt">Carregando...</div></div>
+    </div>
+
+    <!-- ── CLIENTES ── -->
+    <div class="page" id="pg-clientes">
+      <div class="loading"><div class="spinner"></div><div class="loading-txt">Carregando...</div></div>
+    </div>
+
+    <!-- ── CANAIS ── -->
+    <div class="page" id="pg-canais">
+      <div class="loading"><div class="spinner"></div><div class="loading-txt">Carregando...</div></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// ✏️  COMO ADICIONAR UM NOVO VENDEDOR:
+//   1. Abra a planilha do novo vendedor no Google Sheets
+//   2. Copie o ID da URL (o trecho longo entre /d/ e /edit)
+//      Ex: https://docs.google.com/spreadsheets/d/SEU_ID_AQUI/edit
+//   3. Adicione uma nova linha abaixo seguindo o padrão:
+//      { nome: 'Nome do Vendedor', id: 'SEU_ID_AQUI' },
+//   4. Salve o arquivo. Pronto!
+// ══════════════════════════════════════════════════════════════════
+const VENDEDORES = [
+  { nome: 'Jessica Aguiar', id: '1B16XoTScQW4j6fkza0dmyLwJkdJ1AsuRIfFz32qqyCY' },
+  { nome: 'Talita',         id: '1TIaEXfDchj0fEq2GhXnmAu-21Yf2URQboxtvuwTX2OY' },
+  { nome: 'Jessica Campos', id: '1ImuoCrfJSiw0pRi2oTZxh-0HO_AMMOzV5weYzXfVmLI' },
+  // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI' },
+];
+const MESES = ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const MESES_PT = {MAIO:'Maio',JUNHO:'Junho',JULHO:'Julho',AGOSTO:'Agosto',SETEMBRO:'Setembro',OUTUBRO:'Outubro',NOVEMBRO:'Novembro',DEZEMBRO:'Dezembro'};
+
+// ── METAS — salvas no browser, persistem entre sessões ───────────
+// Meta padrão por vendedor (editável pelo dashboard, fica salvo automaticamente)
+const META_PADRAO = 50000;
+const STORAGE_KEY = 'a5eco_metas_v1';
+
+function loadMetas() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved) return JSON.parse(saved);
+  } catch(e) {}
+  // defaults
+  const obj = {};
+  VENDEDORES.forEach(v => {
+    obj[v.nome] = {};
+    MESES.forEach(m => obj[v.nome][m] = META_PADRAO);
+  });
+  return obj;
+}
+
+function saveMetas() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(METAS)); } catch(e) {}
+}
+
+const METAS = loadMetas();
+// Garante que novos vendedores adicionados ao array também tenham metas
+VENDEDORES.forEach(v => {
+  if(!METAS[v.nome]) METAS[v.nome] = {};
+  MESES.forEach(m => { if(!METAS[v.nome][m]) METAS[v.nome][m] = META_PADRAO; });
+});
+
+Chart.defaults.color = '#8a85a0';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+
+let allData = {}; // { vendedor: { mes: [...rows] } }
+let charts = {};
+let selectedCliente = 0;
+
+// ── HELPERS ──────────────────────────────────────────────────────
+const fmt = n => n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtK = n => n >= 1000 ? 'R$' + (n/1000).toFixed(1) + 'k' : 'R$' + fmt(n);
+const parseMoney = s => {
+  if(!s) return 0;
+  return parseFloat(String(s).replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.')) || 0;
+};
+const destroyChart = id => { if(charts[id]){ charts[id].destroy(); delete charts[id]; } };
+
+function getVendedor() { return document.getElementById('selVendedor').value; }
+function getMes()      { return document.getElementById('selMes').value; }
+
+function getData() {
+  const v = getVendedor();
+  const m = getMes();
+  let rows = [];
+  if(v === 'all') {
+    VENDEDORES.forEach((vd,i) => {
+      const vrows = (allData[vd.nome] && allData[vd.nome][m]) || [];
+      rows = rows.concat(vrows.map(r => ({...r, _vendedor: vd.nome})));
+    });
+  } else {
+    const vd = VENDEDORES[parseInt(v)];
+    rows = ((allData[vd.nome] && allData[vd.nome][m]) || []).map(r => ({...r, _vendedor: vd.nome}));
+  }
+  return rows;
+}
+
+function getMeta() {
+  const v = getVendedor();
+  const m = getMes();
+  if(v === 'all') return VENDEDORES.reduce((s,vd) => s + (METAS[vd.nome][m]||50000), 0);
+  return METAS[VENDEDORES[parseInt(v)].nome][m] || 50000;
+}
+
+// ── FETCH ─────────────────────────────────────────────────────────
+async function fetchSheet(sheetId, sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
+  if(!json.table || !json.table.rows) return [];
+
+  const cols = json.table.cols.map(c => c.label.trim());
+  // Find column indices
+  const colNome  = cols.findIndex(c => /nome/i.test(c));
+  const colTel   = cols.findIndex(c => /tel/i.test(c));
+  const colEmail = cols.findIndex(c => /mail/i.test(c));
+  const colVal   = cols.findIndex(c => /valor/i.test(c));
+  const colProd  = cols.findIndex(c => /produto/i.test(c));
+  const colCanal = cols.findIndex(c => /canal/i.test(c));
+  const colAcao  = cols.findIndex(c => /a[çc][aã]o/i.test(c));
+
+  const getCell = (row, idx) => {
+    if(idx < 0 || !row.c[idx]) return '';
+    return String(row.c[idx].f || row.c[idx].v || '').trim();
+  };
+
+  const rows = [];
+  json.table.rows.forEach(row => {
+    const nome = colNome >= 0 ? getCell(row, colNome) : '';
+    // skip header-like rows, empty rows, "Exemplo" rows
+    if(!nome || /^(exemplo|nome)/i.test(nome)) return;
+    const val = parseMoney(getCell(row, colVal));
+    // only include rows with name and value > 0
+    if(val <= 0) return;
+    rows.push({
+      nome,
+      tel:   getCell(row, colTel),
+      email: getCell(row, colEmail),
+      val,
+      prod:  getCell(row, colProd) || 'Não informado',
+      canal: getCell(row, colCanal) || 'Não informado',
+      acao:  getCell(row, colAcao),
+    });
+  });
+  return rows;
+}
+
+async function loadAll() {
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('spinning');
+
+  const mes = getMes();
+  const promises = VENDEDORES.map(async vd => {
+    if(!allData[vd.nome]) allData[vd.nome] = {};
+    try {
+      allData[vd.nome][mes] = await fetchSheet(vd.id, mes);
+    } catch(e) {
+      console.warn('Erro ao carregar', vd.nome, mes, e);
+      allData[vd.nome][mes] = [];
+    }
+  });
+
+  await Promise.all(promises);
+  document.getElementById('last-sync').textContent = 'Sync: ' + new Date().toLocaleTimeString('pt-BR');
+  btn.classList.remove('spinning');
+  renderAll();
+}
+
+function onFilterChange() { loadAll(); }
+
+// ── NAVIGATION ───────────────────────────────────────────────────
+function goPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('pg-' + id).classList.add('active');
+  el.classList.add('active');
+  const titles = {dashboard:'Dashboard Comercial', metas:'Metas & Sprints', clientes:'Clientes', canais:'Canais & Produtos'};
+  document.getElementById('topbar-title').textContent = titles[id] || id;
+  renderPage(id);
+}
+
+function renderAll() {
+  const active = document.querySelector('.page.active');
+  if(!active) return;
+  const id = active.id.replace('pg-','');
+  renderPage(id);
+}
+
+function renderPage(id) {
+  if(id === 'dashboard') renderDashboard();
+  else if(id === 'metas') renderMetas();
+  else if(id === 'clientes') renderClientes();
+  else if(id === 'canais') renderCanais();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────────
+function renderDashboard() {
+  const rows = getData();
+  const meta = getMeta();
+  const mes = getMes();
+  const vLabel = getVendedor() === 'all' ? 'Todos os vendedores' : VENDEDORES[parseInt(getVendedor())].nome;
+
+  if(!rows.length) {
+    document.getElementById('pg-dashboard').innerHTML = emptyHTML('📊','Sem dados para ' + MESES_PT[mes],'Verifique se as planilhas estão compartilhadas e têm dados para este mês.');
+    return;
+  }
+
+  const rec = rows.reduce((s,r) => s+r.val, 0);
+  const nClientes = rows.length;
+  const tk = nClientes ? rec/nClientes : 0;
+  const pctMeta = Math.min(Math.round(rec/meta*100), 100);
+  const metaColor = pctMeta >= 100 ? 'green' : pctMeta >= 60 ? 'yellow' : 'red';
+  const metaBadgeClass = pctMeta >= 100 ? 'b-green' : pctMeta >= 60 ? 'b-yellow' : 'b-red';
+
+  // canal breakdown
+  const canais = {};
+  rows.forEach(r => { canais[r.canal] = (canais[r.canal]||0)+r.val; });
+  const topCanal = Object.entries(canais).sort((a,b)=>b[1]-a[1])[0]||['—',0];
+
+  const diasMes = new Date(2026, MESES.indexOf(mes)+5, 0).getDate() || 30;
+  const metaDia = meta / diasMes;
+  const metaSem = meta / 4;
+
+  document.getElementById('pg-dashboard').innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Receita Total</div>
+        <div class="stat-value green">R$${fmtK(rec).replace('R$','')}</div>
+        <div class="stat-sub">${MESES_PT[mes]} · ${vLabel}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Clientes</div>
+        <div class="stat-value purple">${nClientes}</div>
+        <div class="stat-sub">fechamentos no mês</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ticket Médio</div>
+        <div class="stat-value blue">R$${fmtK(tk).replace('R$','')}</div>
+        <div class="stat-sub">por fechamento</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top Canal</div>
+        <div class="stat-value yellow" style="font-size:1.1rem;margin-top:4px;">${topCanal[0]}</div>
+        <div class="stat-sub">R$${fmtK(topCanal[1]).replace('R$','')} gerado</div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-bottom:1.2rem">
+      <div class="card">
+        <div class="card-title">Meta do Mês</div>
+        <div class="meta-header">
+          <div class="meta-values">
+            <strong>R$${fmt(rec)}</strong> <span style="opacity:.5">/</span> R$${fmt(meta)}
+          </div>
+          <span class="badge ${metaBadgeClass}">${pctMeta}%</span>
+        </div>
+        <div class="pb"><div class="pf" id="db-metabar" style="width:0%;background:var(--${metaColor === 'green' ? 'green' : metaColor === 'yellow' ? 'yellow' : 'red'});"></div></div>
+        <div class="meta-sub">${pctMeta >= 100 ? '✓ Meta atingida!' : 'Faltam R$' + fmt(meta - rec)}</div>
+        <div class="meta-input-row">
+          <label>Meta R$</label>
+          <input type="number" id="db-meta-input" value="${meta}" oninput="saveMeta(this.value)">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Funil de Conversão</div>
+        <div id="db-funil"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Breakdown Semanal</div>
+    <div class="card">
+      <div class="card-title">Sprints — Meta semanal R$${fmt(metaSem)}</div>
+      <div id="db-sprints"></div>
+    </div>`;
+
+  // animate meta bar
+  setTimeout(() => {
+    const bar = document.getElementById('db-metabar');
+    if(bar) bar.style.width = pctMeta + '%';
+  }, 100);
+
+  // funil
+  const canal_entries = Object.entries(canais).sort((a,b)=>b[1]-a[1]);
+  const maxVal = canal_entries[0] ? canal_entries[0][1] : 1;
+  const colors = ['#9B6BFF','#4ade80','#60a5fa','#fbbf24','#f87171','#f472b6'];
+  document.getElementById('db-funil').innerHTML = canal_entries.slice(0,4).map(([canal,val],i) => `
+    <div class="funil-row">
+      <span class="funil-lbl">${canal}</span>
+      <div class="funil-wrap">
+        <div class="funil-fill" style="width:${Math.max(Math.round(val/maxVal*100),8)}%;background:${colors[i]}33;color:${colors[i]};border:1px solid ${colors[i]}55;">
+          ${nClientes ? rows.filter(r=>r.canal===canal).length : 0}
+        </div>
+      </div>
+      <span class="funil-pct">${Math.round(val/rec*100)}%</span>
+    </div>`).join('');
+
+  // sprints (distribui receita simulada por semanas)
+  const sprintVals = distribuitSprints(rows, meta);
+  document.getElementById('db-sprints').innerHTML = ['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'].map((lbl,i) => {
+    const v = sprintVals[i];
+    const pct = Math.min(Math.round(v/metaSem*100),100);
+    const cl = pct>=100?'b-green':pct>=60?'b-yellow':'b-red';
+    const tx = pct>=100?'✓ Atingida':pct>=60?'Em andamento':'Atenção';
+    return `<div class="sprint-row">
+      <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
+      <div class="pb" style="margin:0"><div class="pf" style="width:${pct}%;background:var(--purple);"></div></div>
+      <span class="sprint-val">R$${fmtK(v).replace('R$','')}</span>
+      <span class="badge ${cl}" style="font-size:10px;">${tx}</span>
+    </div>`;
+  }).join('');
+}
+
+function distribuitSprints(rows, meta) {
+  // distribui proporcionalmente com base no total real
+  const total = rows.reduce((s,r) => s+r.val, 0);
+  if(!total) return [0,0,0,0];
+  const weights = [0.4, 0.3, 0.2, 0.1];
+  return weights.map(w => Math.round(total * w));
+}
+
+function saveMeta(val) {
+  const v = getVendedor();
+  const m = getMes();
+  const numVal = parseFloat(val) || 50000;
+  if(v === 'all') {
+    VENDEDORES.forEach(vd => METAS[vd.nome][m] = numVal / VENDEDORES.length);
+  } else {
+    METAS[VENDEDORES[parseInt(v)].nome][m] = numVal;
+  }
+  saveMetas();
+  renderDashboard();
+}
+
+// ── METAS ────────────────────────────────────────────────────────
+function renderMetas() {
+  const mes = getMes();
+  const v = getVendedor();
+  const allRows = getData();
+  const meta = getMeta();
+  const rec = allRows.reduce((s,r) => s+r.val, 0);
+  const diasMes = 30;
+  const metaDia = meta / diasMes;
+  const metaSem = meta / 4;
+  const metaDiaColor = rec/(diasMes*0.5) >= metaDia ? 'green' : 'yellow';
+
+  const vendedoresShow = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
+
+  document.getElementById('pg-metas').innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Meta Mensal</div>
+        <div class="stat-value purple">R$${fmtK(meta).replace('R$','')}</div>
+        <div class="stat-sub">${MESES_PT[mes]}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Meta Semanal</div>
+        <div class="stat-value blue">R$${fmtK(metaSem).replace('R$','')}</div>
+        <div class="stat-sub">meta / 4 semanas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Meta Diária</div>
+        <div class="stat-value yellow">R$${fmtK(metaDia).replace('R$','')}</div>
+        <div class="stat-sub">meta / ${diasMes} dias</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Realizado</div>
+        <div class="stat-value green">R$${fmtK(rec).replace('R$','')}</div>
+        <div class="stat-sub">${Math.round(rec/meta*100)}% da meta</div>
+      </div>
+    </div>
+
+    <div class="section-title">Meta por Vendedor — ${MESES_PT[mes]}</div>
+    <div class="grid${vendedoresShow.length > 1 ? '3' : '2'}">
+      ${vendedoresShow.map(vd => {
+        const vRows = (allData[vd.nome] && allData[vd.nome][mes]) || [];
+        const vRec = vRows.reduce((s,r) => s+r.val, 0);
+        const vMeta = METAS[vd.nome][mes] || 50000;
+        const vPct = Math.min(Math.round(vRec/vMeta*100), 100);
+        const vCl = vPct>=100?'b-green':vPct>=60?'b-yellow':'b-red';
+        return `<div class="card">
+          <div class="card-title">${vd.nome}</div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:.4rem;">R$${fmt(vRec)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.6rem;">meta: R$${fmt(vMeta)}</div>
+          <div class="pb"><div class="pf" style="width:${vPct}%;background:var(--purple);"></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;">
+            <span style="font-size:11px;color:var(--muted);">${vPct>=100?'✓ Meta atingida!':'Faltam R$'+fmt(vMeta-vRec)}</span>
+            <span class="badge ${vCl}">${vPct}%</span>
+          </div>
+          <div class="meta-input-row">
+            <label>Meta</label>
+            <input type="number" value="${vMeta}" oninput="saveMetaVendedor('${vd.nome}','${mes}',this.value)">
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="section-title">Sprints Semanais — ${MESES_PT[mes]}</div>
+    ${vendedoresShow.map(vd => {
+      const vRows = (allData[vd.nome] && allData[vd.nome][mes]) || [];
+      const vMeta = METAS[vd.nome][mes] || 50000;
+      const vMetaSem = vMeta / 4;
+      const spVals = distribuitSprints(vRows, vMeta);
+      return `<div class="card">
+        <div class="card-title">${vd.nome} — Sprints (meta semanal: R$${fmt(vMetaSem)})</div>
+        ${['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'].map((lbl,i) => {
+          const sv = spVals[i];
+          const sp = Math.min(Math.round(sv/vMetaSem*100),100);
+          const cl = sp>=100?'b-green':sp>=60?'b-yellow':'b-red';
+          return `<div class="sprint-row">
+            <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
+            <div class="pb" style="margin:0"><div class="pf" style="width:${sp}%;background:var(--purple);"></div></div>
+            <span class="sprint-val">R$${fmtK(sv).replace('R$','')}</span>
+            <span class="badge ${cl}" style="font-size:10px;">${sp>=100?'Atingida':sp>=60?'Andamento':'Atenção'}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}`;
+}
+
+function saveMetaVendedor(nome, mes, val) {
+  METAS[nome][mes] = parseFloat(val) || 50000;
+  saveMetas();
+  renderMetas();
+}
+
+// ── CLIENTES ─────────────────────────────────────────────────────
+function renderClientes() {
+  const rows = getData();
+  if(!rows.length) {
+    document.getElementById('pg-clientes').innerHTML = emptyHTML('👤','Sem clientes para este período','');
+    return;
+  }
+
+  document.getElementById('pg-clientes').innerHTML = `
+    <div class="search-row">
+      <input type="text" id="cli-search" placeholder="Buscar por nome..." oninput="filterClientes()">
+      <span style="font-size:12px;color:var(--muted);" id="cli-count">${rows.length} clientes</span>
+    </div>
+    <div class="cli-grid">
+      <div class="cli-list" id="cli-list"></div>
+      <div id="cli-detail"><div class="detail-card" style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;">← Selecione um cliente</div></div>
+    </div>`;
+
+  renderCliList(rows);
+}
+
+function filterClientes() {
+  const q = document.getElementById('cli-search').value.toLowerCase();
+  const rows = getData().filter(r => r.nome.toLowerCase().includes(q));
+  document.getElementById('cli-count').textContent = rows.length + ' clientes';
+  renderCliList(rows);
+}
+
+function renderCliList(rows) {
+  const list = document.getElementById('cli-list');
+  if(!list) return;
+  list.innerHTML = rows.map((r,i) => `
+    <div class="cli-item" id="cli-${i}" onclick="showCliente(${i})">
+      <div class="cli-name">${r.nome}</div>
+      <div class="cli-sub">${r.canal} · ${r.prod}</div>
+      <div class="cli-val">R$${fmt(r.val)}</div>
+    </div>`).join('');
+  if(rows.length) showCliente(0);
+}
+
+function showCliente(i) {
+  document.querySelectorAll('.cli-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('cli-' + i);
+  if(el) el.classList.add('active');
+  const rows = getData();
+  const r = rows[i];
+  if(!r) return;
+  document.getElementById('cli-detail').innerHTML = `
+    <div class="detail-card">
+      <div class="detail-row">
+        <div class="detail-label">Nome</div>
+        <div class="detail-value" style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;">${r.nome}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Valor da Venda</div>
+        <div class="detail-value" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--green);">R$${fmt(r.val)}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Produto</div>
+        <div class="detail-value">${r.prod}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Canal de Origem</div>
+        <div class="detail-value"><span class="badge b-purple">${r.canal}</span></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Telefone</div>
+        <div class="detail-value">${r.tel || '—'}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">E-mail</div>
+        <div class="detail-value">${r.email || '—'}</div>
+      </div>
+      ${r._vendedor ? `<div class="detail-row"><div class="detail-label">Vendedora</div><div class="detail-value">${r._vendedor}</div></div>` : ''}
+      <div class="detail-row">
+        <div class="detail-label">Ação que levou ao fechamento</div>
+        <div class="detail-value">${r.acao || '—'}</div>
+      </div>
+    </div>`;
+}
+
+// ── CANAIS ───────────────────────────────────────────────────────
+function renderCanais() {
+  const rows = getData();
+  if(!rows.length) {
+    document.getElementById('pg-canais').innerHTML = emptyHTML('📈','Sem dados para este período','');
+    return;
+  }
+
+  const rec = rows.reduce((s,r) => s+r.val, 0);
+
+  // por canal
+  const canais = {};
+  rows.forEach(r => { canais[r.canal] = (canais[r.canal]||0)+r.val; });
+  const cEntries = Object.entries(canais).sort((a,b)=>b[1]-a[1]);
+  const maxC = cEntries[0]?cEntries[0][1]:1;
+
+  // por produto
+  const prods = {};
+  rows.forEach(r => { prods[r.prod] = (prods[r.prod]||0)+r.val; });
+  const pEntries = Object.entries(prods).sort((a,b)=>b[1]-a[1]);
+  const maxP = pEntries[0]?pEntries[0][1]:1;
+
+  const barColors = ['#9B6BFF','#4ade80','#60a5fa','#fbbf24','#f87171','#f472b6'];
+
+  document.getElementById('pg-canais').innerHTML = `
+    <div class="stats-row" style="grid-template-columns:repeat(${Math.min(Object.keys(canais).length,4)},1fr)">
+      ${cEntries.slice(0,4).map(([c,v],i) => `
+      <div class="stat-card">
+        <div class="stat-label">${c}</div>
+        <div class="stat-value" style="color:${barColors[i]};font-size:1.4rem;">R$${fmtK(v).replace('R$','')}</div>
+        <div class="stat-sub">${Math.round(v/rec*100)}% da receita</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Receita por Canal</div>
+        ${cEntries.map(([c,v],i) => `
+        <div class="bar-item">
+          <div class="bar-head"><span>${c}</span><span class="bar-val">R$${fmt(v)}</span></div>
+          <div class="pb"><div class="pf" style="width:${Math.round(v/maxC*100)}%;background:${barColors[i%barColors.length]};"></div></div>
+        </div>`).join('')}
+      </div>
+      <div class="card">
+        <div class="card-title">Receita por Produto</div>
+        ${pEntries.map(([p,v],i) => `
+        <div class="bar-item">
+          <div class="bar-head"><span>${p}</span><span class="bar-val">R$${fmt(v)}</span></div>
+          <div class="pb"><div class="pf" style="width:${Math.round(v/maxP*100)}%;background:${barColors[i%barColors.length]};"></div></div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="section-title">Clientes por Canal</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>Canal</th><th>Qtd Clientes</th><th>Receita</th><th>Ticket Médio</th><th>% Receita</th>
+          </tr></thead>
+          <tbody>
+            ${cEntries.map(([c,v]) => {
+              const cnt = rows.filter(r=>r.canal===c).length;
+              return `<tr>
+                <td><span class="badge b-purple">${c}</span></td>
+                <td>${cnt}</td>
+                <td style="font-weight:600;color:var(--green);">R$${fmt(v)}</td>
+                <td class="muted">R$${fmt(v/cnt)}</td>
+                <td class="muted">${Math.round(v/rec*100)}%</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── UTILS ────────────────────────────────────────────────────────
+function emptyHTML(icon, title, sub) {
+  return `<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><div class="empty-sub">${sub}</div></div>`;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+// Populate vendedor select from VENDEDORES array (auto-updates when you add new ones)
+const selVend = document.getElementById('selVendedor');
+VENDEDORES.forEach((vd, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = vd.nome;
+  selVend.appendChild(opt);
+});
+
+// Set current month
+const MONTH_MAP = {0:'JANEIRO',1:'FEVEREIRO',2:'MARÇO',3:'ABRIL',4:'MAIO',5:'JUNHO',6:'JULHO',7:'AGOSTO',8:'SETEMBRO',9:'OUTUBRO',10:'NOVEMBRO',11:'DEZEMBRO'};
+const curMonthKey = MONTH_MAP[new Date().getMonth()];
+const selMes = document.getElementById('selMes');
+for(let i=0; i<selMes.options.length; i++){
+  if(selMes.options[i].value === curMonthKey){ selMes.selectedIndex=i; break; }
+}
+
+loadAll();
+setInterval(loadAll, 120000); // auto-refresh a cada 2min
+</script>
+</body>
+</html>
