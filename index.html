@@ -357,9 +357,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <script>
 
 const VENDEDORES = [
-  { nome: 'Jessica Aguiar', id: '1B16XoTScQW4j6fkza0dmyLwJkdJ1AsuRIfFz32qqyCY' },
-  { nome: 'Talita',         id: '1TIaEXfDchj0fEq2GhXnmAu-21Yf2URQboxtvuwTX2OY' },
-  { nome: 'Jessica Campos', id: '1ImuoCrfJSiw0pRi2oTZxh-0HO_AMMOzV5weYzXfVmLI' },
+  { nome: 'Jessica Aguiar', id: '1B9LdvK_SZlBlu_BB0nfllL1OFFsXLXLtzDa12ldvnkc' },
+  { nome: 'Talita',         id: '1m6BDV69LfJXtOGCdlwQ9FAIvFsqAfGPPWRxvDS9zO5s' },
+  { nome: 'Jessica Campos', id: '1weHdLnvr7tUa0C8krB2grvUtEonSNb7zl2FiLrMahfY' },
   // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI' },
 ];
 const MESES = ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
@@ -447,23 +447,32 @@ const SKIP_NAME = /^(exemplo|nome|total|r\$|\d+$)/i;
 
 async function fetchSheet(sheetId, sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
+  const res  = await fetch(url);
   const text = await res.text();
   const json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
   if(!json.table || !json.table.rows) return [];
 
-  // ── Step 1: detect header row to find column mapping ──────────────
-  const colLabels = json.table.cols.map(c => (c.label||'').trim().toLowerCase());
-  
-  // Try header from cols first, then scan first rows for header
-  let colMap = detectColMap(colLabels);
-  
-  // If cols don't have labels, scan first few rows for a header row
-  if(colMap.val < 0) {
-    for(let ri = 0; ri < Math.min(3, json.table.rows.length); ri++) {
-      const candidate = json.table.rows[ri].c.map(c => c ? String(c.v||c.f||'').trim().toLowerCase() : '');
-      const cm = detectColMap(candidate);
-      if(cm.val >= 0) { colMap = cm; break; }
+  const colLabels = json.table.cols.map(c=>(c.label||'').trim().toLowerCase());
+
+  function mapCols(labels) {
+    return {
+      nome:  labels.findIndex(c=>/\bnome\b/.test(c)),
+      tel:   labels.findIndex(c=>/tel[ef]/.test(c)),
+      email: labels.findIndex(c=>/e?-?mail/.test(c)),
+      val:   labels.findIndex(c=>/valor/.test(c)),
+      prod:  labels.findIndex(c=>/produto/.test(c)),
+      canal: labels.findIndex(c=>/\bcanal\b/.test(c)),
+      acao:  labels.findIndex(c=>/levou|a[çc][aã]o/.test(c)),
+    };
+  }
+
+  let colMap = mapCols(colLabels);
+
+  // If headers not in cols metadata, try first data row
+  if(colMap.nome < 0 && json.table.rows.length > 0) {
+    const firstCells = json.table.rows[0].c.map(c=>c?String(c.v||c.f||'').trim().toLowerCase():'');
+    if(firstCells.some(c=>/\bnome\b/.test(c))) {
+      colMap = mapCols(firstCells);
     }
   }
 
@@ -472,72 +481,28 @@ async function fetchSheet(sheetId, sheetName) {
     return String(row.c[idx].f || row.c[idx].v || '').trim();
   };
 
-  // ── Step 2: if still no val column, scan every cell for R$ pattern ──
+  const SKIP = /^(nome|exemplo\s*\d*|total|\d+)$/i;
   const rows = [];
+
   json.table.rows.forEach(row => {
-    const cells = row.c.map(c => c ? String(c.f || c.v || '').trim() : '');
-    
-    // Try mapped columns first
-    let nome  = colMap.nome  >= 0 ? cells[colMap.nome]  : '';
-    let val   = colMap.val   >= 0 ? parseMoney(cells[colMap.val]) : 0;
-    let tel   = colMap.tel   >= 0 ? cells[colMap.tel]   : '';
-    let email = colMap.email >= 0 ? cells[colMap.email] : '';
-    let prod  = colMap.prod  >= 0 ? cells[colMap.prod]  : '';
-    let canal = colMap.canal >= 0 ? cells[colMap.canal] : '';
-    let acao  = colMap.acao  >= 0 ? cells[colMap.acao]  : '';
-
-    // If val not found via map, scan all cells for money pattern
-    if(val <= 0) {
-      cells.forEach(c => {
-        if(val <= 0 && /R\$/.test(c)) {
-          const v = parseMoney(c);
-          if(v > 0 && v < 10000000) val = v; // sanity: ignore totalizadores gigantes na col H
-        }
-      });
-    }
-
-    // If nome not found via map, find first text-like cell (not number, not money, not phone)
-    if(!nome) {
-      for(let c of cells) {
-        if(c && !/^[\d\s\-R$.,()]+$/.test(c) && !RE_EMAIL.test(c) && !RE_CANAL.test(c) && c.length > 1) {
-          nome = c; break;
-        }
-      }
-    }
-
-    // Infer missing fields by scanning cells
-    if(!tel)   cells.forEach(c => { if(!tel   && RE_PHONE.test(c)) tel   = c; });
-    if(!email) cells.forEach(c => { if(!email && RE_EMAIL.test(c)) email = c; });
-    if(!canal) cells.forEach(c => { if(!canal && RE_CANAL.test(c)) canal = c.trim(); });
-
-    // Skip: no name, skip words, no value, or value looks like a row-total (> 500k)
-    if(!nome || SKIP_NAME.test(nome)) return;
-    if(val <= 0) return;
-
+    if(!row.c || !row.c.length) return;
+    const nome   = colMap.nome  >= 0 ? getCell(row, colMap.nome)  : '';
+    const valStr = colMap.val   >= 0 ? getCell(row, colMap.val)   : '';
+    const val    = parseMoney(valStr);
+    if(!nome || SKIP.test(nome.trim()) || val <= 0) return;
     rows.push({
-      nome,
-      tel,
-      email,
+      nome:  nome.trim(),
+      tel:   colMap.tel   >= 0 ? getCell(row, colMap.tel)   : '',
+      email: colMap.email >= 0 ? getCell(row, colMap.email) : '',
       val,
-      prod:  prod  || 'Não informado',
-      canal: canal || 'Não informado',
-      acao,
+      prod:  (colMap.prod  >= 0 ? getCell(row, colMap.prod).trim()  : '') || 'Não informado',
+      canal: (colMap.canal >= 0 ? getCell(row, colMap.canal).trim() : '') || 'Não informado',
+      acao:  colMap.acao  >= 0 ? getCell(row, colMap.acao)  : '',
     });
   });
   return rows;
 }
 
-function detectColMap(labels) {
-  return {
-    nome:  labels.findIndex(c => /\bnome\b/i.test(c)),
-    tel:   labels.findIndex(c => /tel[ef]/i.test(c)),
-    email: labels.findIndex(c => /e?-?mail/i.test(c)),
-    val:   labels.findIndex(c => /valor/i.test(c)),
-    prod:  labels.findIndex(c => /produto/i.test(c)),
-    canal: labels.findIndex(c => /\bcanal\b/i.test(c)),
-    acao:  labels.findIndex(c => /a[çc][aã]o/i.test(c)),
-  };
-}
 
 async function loadAll() {
   const btn = document.getElementById('btn-refresh');
