@@ -355,15 +355,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════════════
-// ✏️  COMO ADICIONAR UM NOVO VENDEDOR:
-//   1. Abra a planilha do novo vendedor no Google Sheets
-//   2. Copie o ID da URL (o trecho longo entre /d/ e /edit)
-//      Ex: https://docs.google.com/spreadsheets/d/SEU_ID_AQUI/edit
-//   3. Adicione uma nova linha abaixo seguindo o padrão:
-//      { nome: 'Nome do Vendedor', id: 'SEU_ID_AQUI' },
-//   4. Salve o arquivo. Pronto!
-// ══════════════════════════════════════════════════════════════════
+
 const VENDEDORES = [
   { nome: 'Jessica Aguiar', id: '1B16XoTScQW4j6fkza0dmyLwJkdJ1AsuRIfFz32qqyCY' },
   { nome: 'Talita',         id: '1TIaEXfDchj0fEq2GhXnmAu-21Yf2URQboxtvuwTX2OY' },
@@ -520,7 +512,7 @@ async function fetchSheet(sheetId, sheetName) {
 
     // Skip: no name, skip words, no value, or value looks like a row-total (> 500k)
     if(!nome || SKIP_NAME.test(nome)) return;
-    if(val <= 0 || val > 500000) return;
+    if(val <= 0) return;
 
     rows.push({
       nome,
@@ -619,7 +611,7 @@ function renderDashboard() {
   rows.forEach(r => { canais[r.canal] = (canais[r.canal]||0)+r.val; });
   const topCanal = Object.entries(canais).sort((a,b)=>b[1]-a[1])[0]||['—',0];
 
-  const diasMes = new Date(2026, MESES.indexOf(mes)+5, 0).getDate() || 30;
+  const diasMes = 30;
   const metaDia = meta / diasMes;
   const metaSem = meta / 4;
 
