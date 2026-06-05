@@ -396,6 +396,13 @@ function getMeta() {
 }
 
 // ── FETCH ─────────────────────────────────────────────────────────
+// Regex to detect a monetary value cell (R$ or number with comma/dot pattern)
+const RE_MONEY = /R\$|^\s*\d{1,3}([.,]\d{3})*([.,]\d{2})?\s*$/;
+const RE_PHONE = /^\d[\d\s\-().]{6,}$/;
+const RE_EMAIL = /@/;
+const RE_CANAL = /org[aâ]nico|prospec|indica|meta|google|whats/i;
+const SKIP_NAME = /^(exemplo|nome|total|r\$|\d+$)/i;
+
 async function fetchSheet(sheetId, sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
@@ -403,40 +410,91 @@ async function fetchSheet(sheetId, sheetName) {
   const json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
   if(!json.table || !json.table.rows) return [];
 
-  const cols = json.table.cols.map(c => c.label.trim());
-  // Find column indices
-  const colNome  = cols.findIndex(c => /nome/i.test(c));
-  const colTel   = cols.findIndex(c => /tel/i.test(c));
-  const colEmail = cols.findIndex(c => /mail/i.test(c));
-  const colVal   = cols.findIndex(c => /valor/i.test(c));
-  const colProd  = cols.findIndex(c => /produto/i.test(c));
-  const colCanal = cols.findIndex(c => /canal/i.test(c));
-  const colAcao  = cols.findIndex(c => /a[çc][aã]o/i.test(c));
+  // ── Step 1: detect header row to find column mapping ──────────────
+  const colLabels = json.table.cols.map(c => (c.label||'').trim().toLowerCase());
+  
+  // Try header from cols first, then scan first rows for header
+  let colMap = detectColMap(colLabels);
+  
+  // If cols don't have labels, scan first few rows for a header row
+  if(colMap.val < 0) {
+    for(let ri = 0; ri < Math.min(3, json.table.rows.length); ri++) {
+      const candidate = json.table.rows[ri].c.map(c => c ? String(c.v||c.f||'').trim().toLowerCase() : '');
+      const cm = detectColMap(candidate);
+      if(cm.val >= 0) { colMap = cm; break; }
+    }
+  }
 
   const getCell = (row, idx) => {
-    if(idx < 0 || !row.c[idx]) return '';
+    if(idx < 0 || idx >= row.c.length || !row.c[idx]) return '';
     return String(row.c[idx].f || row.c[idx].v || '').trim();
   };
 
+  // ── Step 2: if still no val column, scan every cell for R$ pattern ──
   const rows = [];
   json.table.rows.forEach(row => {
-    const nome = colNome >= 0 ? getCell(row, colNome) : '';
-    // skip header-like rows, empty rows, "Exemplo" rows
-    if(!nome || /^(exemplo|nome)/i.test(nome)) return;
-    const val = parseMoney(getCell(row, colVal));
-    // only include rows with name and value > 0
-    if(val <= 0) return;
+    const cells = row.c.map(c => c ? String(c.f || c.v || '').trim() : '');
+    
+    // Try mapped columns first
+    let nome  = colMap.nome  >= 0 ? cells[colMap.nome]  : '';
+    let val   = colMap.val   >= 0 ? parseMoney(cells[colMap.val]) : 0;
+    let tel   = colMap.tel   >= 0 ? cells[colMap.tel]   : '';
+    let email = colMap.email >= 0 ? cells[colMap.email] : '';
+    let prod  = colMap.prod  >= 0 ? cells[colMap.prod]  : '';
+    let canal = colMap.canal >= 0 ? cells[colMap.canal] : '';
+    let acao  = colMap.acao  >= 0 ? cells[colMap.acao]  : '';
+
+    // If val not found via map, scan all cells for money pattern
+    if(val <= 0) {
+      cells.forEach(c => {
+        if(val <= 0 && /R\$/.test(c)) {
+          const v = parseMoney(c);
+          if(v > 0 && v < 10000000) val = v; // sanity: ignore totalizadores gigantes na col H
+        }
+      });
+    }
+
+    // If nome not found via map, find first text-like cell (not number, not money, not phone)
+    if(!nome) {
+      for(let c of cells) {
+        if(c && !/^[\d\s\-R$.,()]+$/.test(c) && !RE_EMAIL.test(c) && !RE_CANAL.test(c) && c.length > 1) {
+          nome = c; break;
+        }
+      }
+    }
+
+    // Infer missing fields by scanning cells
+    if(!tel)   cells.forEach(c => { if(!tel   && RE_PHONE.test(c)) tel   = c; });
+    if(!email) cells.forEach(c => { if(!email && RE_EMAIL.test(c)) email = c; });
+    if(!canal) cells.forEach(c => { if(!canal && RE_CANAL.test(c)) canal = c.trim(); });
+
+    // Skip: no name, skip words, no value, or value looks like a row-total (> 500k)
+    if(!nome || SKIP_NAME.test(nome)) return;
+    if(val <= 0 || val > 500000) return;
+
     rows.push({
       nome,
-      tel:   getCell(row, colTel),
-      email: getCell(row, colEmail),
+      tel,
+      email,
       val,
-      prod:  getCell(row, colProd) || 'Não informado',
-      canal: getCell(row, colCanal) || 'Não informado',
-      acao:  getCell(row, colAcao),
+      prod:  prod  || 'Não informado',
+      canal: canal || 'Não informado',
+      acao,
     });
   });
   return rows;
+}
+
+function detectColMap(labels) {
+  return {
+    nome:  labels.findIndex(c => /\bnome\b/i.test(c)),
+    tel:   labels.findIndex(c => /tel[ef]/i.test(c)),
+    email: labels.findIndex(c => /e?-?mail/i.test(c)),
+    val:   labels.findIndex(c => /valor/i.test(c)),
+    prod:  labels.findIndex(c => /produto/i.test(c)),
+    canal: labels.findIndex(c => /\bcanal\b/i.test(c)),
+    acao:  labels.findIndex(c => /a[çc][aã]o/i.test(c)),
+  };
 }
 
 async function loadAll() {
@@ -588,28 +646,49 @@ function renderDashboard() {
       <span class="funil-pct">${Math.round(val/rec*100)}%</span>
     </div>`).join('');
 
-  // sprints (distribui receita simulada por semanas)
-  const sprintVals = distribuitSprints(rows, meta);
-  document.getElementById('db-sprints').innerHTML = ['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'].map((lbl,i) => {
-    const v = sprintVals[i];
-    const pct = Math.min(Math.round(v/metaSem*100),100);
-    const cl = pct>=100?'b-green':pct>=60?'b-yellow':'b-red';
-    const tx = pct>=100?'✓ Atingida':pct>=60?'Em andamento':'Atenção';
-    return `<div class="sprint-row">
-      <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
-      <div class="pb" style="margin:0"><div class="pf" style="width:${pct}%;background:var(--purple);"></div></div>
-      <span class="sprint-val">R$${fmtK(v).replace('R$','')}</span>
-      <span class="badge ${cl}" style="font-size:10px;">${tx}</span>
+  // sprints com valores manuais
+  const v = getVendedor();
+  const vendedoresShow = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
+  const sprintLabels = ['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'];
+  document.getElementById('db-sprints').innerHTML = vendedoresShow.map(vd => {
+    const vMeta = METAS[vd.nome][mes] || 50000;
+    const vMetaSem = vMeta / 4;
+    const spVals = distribuitSprints(vd.nome, mes);
+    return `<div style="margin-bottom:${vendedoresShow.length>1?'1.5rem':'0'}">
+      ${vendedoresShow.length > 1 ? `<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:.6rem;font-family:'Syne',sans-serif;">${vd.nome}</div>` : ''}
+      ${sprintLabels.map((lbl,i) => {
+        const sv = spVals[i];
+        const sp = Math.min(Math.round(sv/vMetaSem*100),100);
+        const cl = sp>=100?'b-green':sp>=60?'b-yellow':'b-red';
+        return `<div class="sprint-row" style="grid-template-columns:90px 1fr 140px 80px;margin-bottom:8px;">
+          <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
+          <div class="pb" style="margin:0"><div class="pf" style="width:${sp}%;background:var(--purple);"></div></div>
+          <input type="number" placeholder="R$ realizado" value="${sv||''}"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);font-family:'DM Sans',sans-serif;width:130px;"
+            oninput="saveSprint('${vd.nome}','${mes}',${i},this.value)">
+          <span class="badge ${cl}" style="font-size:10px;">${sp>=100?'Atingida':sp>=60?'Andamento':'Atenção'}</span>
+        </div>`;
+      }).join('')}
     </div>`;
   }).join('');
 }
 
-function distribuitSprints(rows, meta) {
-  // distribui proporcionalmente com base no total real
-  const total = rows.reduce((s,r) => s+r.val, 0);
-  if(!total) return [0,0,0,0];
-  const weights = [0.4, 0.3, 0.2, 0.1];
-  return weights.map(w => Math.round(total * w));
+function distribuitSprints(nomeVendedor, mes) {
+  // Retorna os valores salvos, ou 0 se não preenchido
+  const key = `sprints_${nomeVendedor}_${mes}`;
+  try {
+    const saved = localStorage.getItem(key);
+    if(saved) return JSON.parse(saved);
+  } catch(e) {}
+  return [0, 0, 0, 0];
+}
+
+function saveSprint(nomeVendedor, mes, idx, val) {
+  const key = `sprints_${nomeVendedor}_${mes}`;
+  const vals = distribuitSprints(nomeVendedor, mes);
+  vals[idx] = parseFloat(val) || 0;
+  try { localStorage.setItem(key, JSON.stringify(vals)); } catch(e) {}
+  renderMetas();
 }
 
 function saveMeta(val) {
@@ -690,23 +769,40 @@ function renderMetas() {
 
     <div class="section-title">Sprints Semanais — ${MESES_PT[mes]}</div>
     ${vendedoresShow.map(vd => {
-      const vRows = (allData[vd.nome] && allData[vd.nome][mes]) || [];
       const vMeta = METAS[vd.nome][mes] || 50000;
       const vMetaSem = vMeta / 4;
-      const spVals = distribuitSprints(vRows, vMeta);
+      const spVals = distribuitSprints(vd.nome, mes);
+      const spTotal = spVals.reduce((s,v)=>s+v,0);
       return `<div class="card">
-        <div class="card-title">${vd.nome} — Sprints (meta semanal: R$${fmt(vMetaSem)})</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <div class="card-title" style="margin:0;">${vd.nome} — Sprints</div>
+          <div style="font-size:11px;color:var(--muted);">meta semanal: <strong style="color:var(--text);">R$${fmt(vMetaSem)}</strong></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:.75rem;display:flex;align-items:center;gap:6px;">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          Digite o valor realizado em cada semana — fica salvo automaticamente
+        </div>
         ${['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'].map((lbl,i) => {
           const sv = spVals[i];
           const sp = Math.min(Math.round(sv/vMetaSem*100),100);
           const cl = sp>=100?'b-green':sp>=60?'b-yellow':'b-red';
-          return `<div class="sprint-row">
-            <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
+          return `<div class="sprint-row" style="grid-template-columns:95px 1fr 160px 85px;margin-bottom:10px;gap:10px;">
+            <span class="sprint-lbl">${lbl}</span>
             <div class="pb" style="margin:0"><div class="pf" style="width:${sp}%;background:var(--purple);"></div></div>
-            <span class="sprint-val">R$${fmtK(sv).replace('R$','')}</span>
-            <span class="badge ${cl}" style="font-size:10px;">${sp>=100?'Atingida':sp>=60?'Andamento':'Atenção'}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:var(--muted);">R$</span>
+              <input type="number" placeholder="0" value="${sv||''}"
+                style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;width:120px;transition:border-color .15s;"
+                onfocus="this.style.borderColor='var(--purple)'" onblur="this.style.borderColor='var(--border)'"
+                oninput="saveSprint('${vd.nome}','${mes}',${i},this.value)">
+            </div>
+            <span class="badge ${cl}" style="font-size:10px;">${sp>=100?'✓ Atingida':sp>=60?'Andamento':'Atenção'}</span>
           </div>`;
         }).join('')}
+        <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted);">Total lançado nas semanas</span>
+          <strong style="color:var(--green);">R$${fmt(spTotal)}</strong>
+        </div>
       </div>`;
     }).join('')}`;
 }
