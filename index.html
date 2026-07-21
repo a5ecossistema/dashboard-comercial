@@ -141,6 +141,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sprint-lbl{font-size:12px;color:var(--muted);}
 .sprint-val{font-size:13px;font-weight:600;text-align:right;}
 
+.sprint-block{margin-bottom:1.5rem;}
+.sprint-block:last-child{margin-bottom:0;}
+.sprint-block-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 8px;margin:0 -8px .6rem;border-radius:8px;transition:background .15s;user-select:none;}
+.sprint-block-header:hover{background:rgba(255,255,255,.04);}
+.sprint-block-header-left{display:flex;align-items:center;gap:8px;}
+.sprint-block-title{font-size:11px;font-weight:700;color:var(--accent);font-family:'Syne',sans-serif;}
+.sprint-block-chevron{transition:transform .2s;color:var(--muted);flex-shrink:0;}
+.sprint-block-chevron.collapsed{transform:rotate(-90deg);}
+.sprint-block-summary{font-size:10px;color:var(--muted);}
+.sprint-block-body{overflow:hidden;transition:max-height .25s ease, opacity .2s ease;}
+.sprint-block-body.collapsed{max-height:0!important;opacity:0;pointer-events:none;}
+
 /* ── FUNIL ── */
 .funil-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .funil-lbl{font-size:11px;color:var(--muted);width:85px;flex-shrink:0;text-align:right;}
@@ -309,6 +321,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
       <div class="sel-wrap">
         <select id="selMes" onchange="onFilterChange()">
+          <option value="JANEIRO">Janeiro</option>
+          <option value="FEVEREIRO">Fevereiro</option>
+          <option value="MARCO">Março</option>
+          <option value="ABRIL">Abril</option>
           <option value="MAIO">Maio</option>
           <option value="JUNHO">Junho</option>
           <option value="JULHO">Julho</option>
@@ -366,8 +382,24 @@ const VENDEDORES = [
   { nome: 'Rodolfo', id: '1HAcMxyEOzDM2EpbZAZFTKTmn7DFpTspP_sQ8rly5KJ0' },
   // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI' },
 ];
-const MESES = ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-const MESES_PT = {MAIO:'Maio',JUNHO:'Junho',JULHO:'Julho',AGOSTO:'Agosto',SETEMBRO:'Setembro',OUTUBRO:'Outubro',NOVEMBRO:'Novembro',DEZEMBRO:'Dezembro'};
+const MESES = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const MESES_PT = {JANEIRO:'Janeiro',FEVEREIRO:'Fevereiro',MARCO:'Março',ABRIL:'Abril',MAIO:'Maio',JUNHO:'Junho',JULHO:'Julho',AGOSTO:'Agosto',SETEMBRO:'Setembro',OUTUBRO:'Outubro',NOVEMBRO:'Novembro',DEZEMBRO:'Dezembro'};
+// Variações de grafia aceitas para cada mês ao buscar a aba na planilha
+// (cobre abas nomeadas com acento, minúsculas, ou capitalizadas em vez de MAIÚSCULAS)
+const MES_VARIANTES = {
+  JANEIRO:['JANEIRO','Janeiro','janeiro'],
+  FEVEREIRO:['FEVEREIRO','Fevereiro','fevereiro'],
+  MARCO:['MARCO','MARÇO','Março','Marco','março','marco'],
+  ABRIL:['ABRIL','Abril','abril'],
+  MAIO:['MAIO','Maio','maio'],
+  JUNHO:['JUNHO','Junho','junho'],
+  JULHO:['JULHO','Julho','julho'],
+  AGOSTO:['AGOSTO','Agosto','agosto'],
+  SETEMBRO:['SETEMBRO','Setembro','setembro'],
+  OUTUBRO:['OUTUBRO','Outubro','outubro'],
+  NOVEMBRO:['NOVEMBRO','Novembro','novembro'],
+  DEZEMBRO:['DEZEMBRO','Dezembro','dezembro'],
+};
 
 // ── METAS — salvas no browser, persistem entre sessões ───────────
 // Meta padrão por vendedor (editável pelo dashboard, fica salvo automaticamente)
@@ -398,6 +430,39 @@ VENDEDORES.forEach(v => {
   if(!METAS[v.nome]) METAS[v.nome] = {};
   MESES.forEach(m => { if(!METAS[v.nome][m]) METAS[v.nome][m] = META_PADRAO; });
 });
+
+// ── COLAPSO DOS CARDS DE SPRINT (persiste no browser) ─────────────
+const SPRINT_COLLAPSE_KEY = 'a5eco_sprint_collapsed_v1';
+function loadSprintCollapse() {
+  try {
+    const saved = localStorage.getItem(SPRINT_COLLAPSE_KEY);
+    if(saved) return JSON.parse(saved);
+  } catch(e) {}
+  return {};
+}
+function saveSprintCollapse() {
+  try { localStorage.setItem(SPRINT_COLLAPSE_KEY, JSON.stringify(SPRINT_COLLAPSE)); } catch(e) {}
+}
+const SPRINT_COLLAPSE = loadSprintCollapse();
+function isSprintCollapsed(key) { return !!SPRINT_COLLAPSE[key]; }
+function toggleSprintCollapse(key) {
+  SPRINT_COLLAPSE[key] = !SPRINT_COLLAPSE[key];
+  saveSprintCollapse();
+  const header = document.getElementById('sph-' + key);
+  const body = document.getElementById('spb-' + key);
+  const chevron = document.getElementById('spc-' + key);
+  if(body) {
+    if(SPRINT_COLLAPSE[key]) {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => { body.style.maxHeight = '0px'; body.classList.add('collapsed'); });
+    } else {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = body.scrollHeight + 'px';
+      setTimeout(() => { body.style.maxHeight = ''; }, 260);
+    }
+  }
+  if(chevron) chevron.classList.toggle('collapsed', !!SPRINT_COLLAPSE[key]);
+}
 
 Chart.defaults.color = '#8a85a0';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
@@ -449,12 +514,42 @@ const RE_EMAIL = /@/;
 const RE_CANAL = /org[aâ]nico|prospec|indica|meta|google|whats/i;
 const SKIP_NAME = /^(exemplo|nome|total|r\$|\d+$)/i;
 
-async function fetchSheet(sheetId, sheetName) {
+async function fetchSheetRaw(sheetId, sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res  = await fetch(url);
   const text = await res.text();
-  const json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
-  if(!json.table || !json.table.rows) return [];
+  let json;
+  try {
+    json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
+  } catch(e) {
+    return null; // resposta não era JSON válido (aba não encontrada, etc.)
+  }
+  if(json.status === 'error') return null;
+  if(!json.table || !json.table.rows || !json.table.rows.length) return null;
+  return json;
+}
+
+async function fetchSheet(sheetId, sheetName) {
+  // Tenta o nome exato primeiro e, se não achar dados, tenta variações comuns
+  // de grafia (maiúsculas/minúsculas/acentos) — resolve casos em que a aba
+  // de um vendedor específico foi nomeada de forma diferente dos demais.
+  const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
+  const tentadas = new Set();
+  let json = null;
+  for(const nomeTentativa of variantes) {
+    if(tentadas.has(nomeTentativa)) continue;
+    tentadas.add(nomeTentativa);
+    try {
+      json = await fetchSheetRaw(sheetId, nomeTentativa);
+    } catch(e) {
+      json = null;
+    }
+    if(json) break;
+  }
+  if(!json) {
+    console.warn(`[A5] Não encontrei dados para a aba "${sheetName}" na planilha ${sheetId} (tentei: ${[...tentadas].join(', ')}). Verifique se o nome da aba e o compartilhamento ("Qualquer pessoa com o link – Leitor") estão corretos.`);
+    return [];
+  }
 
   const colLabels = json.table.cols.map(c=>(c.label||'').trim().toLowerCase());
 
@@ -657,7 +752,7 @@ function renderDashboard() {
       <span class="funil-pct">${Math.round(val/rec*100)}%</span>
     </div>`).join('');
 
-  // sprints com valores manuais
+  // sprints com valores manuais (cards colapsáveis)
   const v = getVendedor();
   const vendedoresShow = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
   const sprintLabels = ['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'];
@@ -665,8 +760,10 @@ function renderDashboard() {
     const vMeta = METAS[vd.nome][mes] || 50000;
     const vMetaSem = vMeta / 4;
     const spVals = distribuitSprints(vd.nome, mes);
-    return `<div style="margin-bottom:${vendedoresShow.length>1?'1.5rem':'0'}">
-      ${vendedoresShow.length > 1 ? `<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:.6rem;font-family:'Syne',sans-serif;">${vd.nome}</div>` : ''}
+    const spTotal = spVals.reduce((s,x)=>s+x,0);
+    const key = 'db-' + vd.nome.replace(/\s+/g,'_');
+    const collapsed = vendedoresShow.length > 1 && isSprintCollapsed(key);
+    const body = `
       ${sprintLabels.map((lbl,i) => {
         const sv = spVals[i];
         const sp = Math.min(Math.round(sv/vMetaSem*100),100);
@@ -679,7 +776,19 @@ function renderDashboard() {
             oninput="saveSprint('${vd.nome}','${mes}',${i},this.value)">
           <span class="badge ${cl}" style="font-size:10px;">${sp>=100?'Atingida':sp>=60?'Andamento':'Atenção'}</span>
         </div>`;
-      }).join('')}
+      }).join('')}`;
+    if(vendedoresShow.length === 1) {
+      return `<div class="sprint-block">${body}</div>`;
+    }
+    return `<div class="sprint-block">
+      <div class="sprint-block-header" id="sph-${key}" onclick="toggleSprintCollapse('${key}')">
+        <div class="sprint-block-header-left">
+          <svg class="sprint-block-chevron${collapsed?' collapsed':''}" id="spc-${key}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          <span class="sprint-block-title">${vd.nome}</span>
+        </div>
+        <span class="sprint-block-summary">R$${fmt(spTotal)} lançado</span>
+      </div>
+      <div class="sprint-block-body${collapsed?' collapsed':''}" id="spb-${key}">${body}</div>
     </div>`;
   }).join('');
 }
@@ -783,12 +892,10 @@ function renderMetas() {
       const vMeta = METAS[vd.nome][mes] || 50000;
       const vMetaSem = vMeta / 4;
       const spVals = distribuitSprints(vd.nome, mes);
-      const spTotal = spVals.reduce((s,v)=>s+v,0);
-      return `<div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-          <div class="card-title" style="margin:0;">${vd.nome} — Sprints</div>
-          <div style="font-size:11px;color:var(--muted);">meta semanal: <strong style="color:var(--text);">R$${fmt(vMetaSem)}</strong></div>
-        </div>
+      const spTotal = spVals.reduce((s,v2)=>s+v2,0);
+      const key = 'mt-' + vd.nome.replace(/\s+/g,'_');
+      const collapsed = isSprintCollapsed(key);
+      const body = `
         <div style="font-size:10px;color:var(--muted);margin-bottom:.75rem;display:flex;align-items:center;gap:6px;">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
           Digite o valor realizado em cada semana — fica salvo automaticamente
@@ -813,7 +920,16 @@ function renderMetas() {
         <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;">
           <span style="color:var(--muted);">Total lançado nas semanas</span>
           <strong style="color:var(--green);">R$${fmt(spTotal)}</strong>
+        </div>`;
+      return `<div class="card">
+        <div class="sprint-block-header" id="sph-${key}" onclick="toggleSprintCollapse('${key}')" style="margin-bottom:${collapsed?'0':'1rem'};">
+          <div class="sprint-block-header-left">
+            <svg class="sprint-block-chevron${collapsed?' collapsed':''}" id="spc-${key}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            <div class="card-title" style="margin:0;">${vd.nome} — Sprints</div>
+          </div>
+          <span style="font-size:11px;color:var(--muted);">meta semanal: <strong style="color:var(--text);">R$${fmt(vMetaSem)}</strong> · R$${fmt(spTotal)} lançado</span>
         </div>
+        <div class="sprint-block-body${collapsed?' collapsed':''}" id="spb-${key}">${body}</div>
       </div>`;
     }).join('')}`;
 }
@@ -1102,7 +1218,7 @@ VENDEDORES.forEach((vd, i) => {
 });
 
 // Set current month
-const MONTH_MAP = {0:'JANEIRO',1:'FEVEREIRO',2:'MARÇO',3:'ABRIL',4:'MAIO',5:'JUNHO',6:'JULHO',7:'AGOSTO',8:'SETEMBRO',9:'OUTUBRO',10:'NOVEMBRO',11:'DEZEMBRO'};
+const MONTH_MAP = {0:'JANEIRO',1:'FEVEREIRO',2:'MARCO',3:'ABRIL',4:'MAIO',5:'JUNHO',6:'JULHO',7:'AGOSTO',8:'SETEMBRO',9:'OUTUBRO',10:'NOVEMBRO',11:'DEZEMBRO'};
 const curMonthKey = MONTH_MAP[new Date().getMonth()];
 const selMes = document.getElementById('selMes');
 for(let i=0; i<selMes.options.length; i++){
