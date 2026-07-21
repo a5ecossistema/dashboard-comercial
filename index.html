@@ -486,6 +486,11 @@ const MES_VARIANTES = {
 
 const MES_INDEX = Object.fromEntries(MESES.map((m,i) => [m,i]));
 
+// Nome EXATO da aba na planilha, conferido de verdade (via Drive). Pra
+// quase todos os meses é igual à chave (ex: 'JULHO'); só MARCO é diferente
+// porque a aba real se chama "MARÇO" (com cedilha).
+const NOME_REAL_ABA = { MARCO: 'MARÇO' };
+
 // Meta padrão por vendedor (editável pelo dashboard, fica salvo automaticamente)
 const META_PADRAO = 50000;
 const STORAGE_KEY = 'a5eco_metas_v1';
@@ -807,28 +812,31 @@ async function fetchSheet(vd, sheetName) {
     return [];
   }
 
-  const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
   const confirmado = vd.mesesConfirmados && vd.mesesConfirmados.includes(sheetName);
 
-  // 2) Mês já confirmado que existe nessa planilha: busca direto pelo nome,
-  //    SEM aplicar a checagem de "fallback" — essa checagem não pode ser
-  //    usada aqui porque, se esse mês for justamente a PRIMEIRA aba da
-  //    planilha, o conteúdo dela é idêntico ao do fallback do Google por
-  //    coincidência (mesma aba), e a checagem acabaria descartando dados
-  //    verdadeiros. Como já confirmamos que a aba existe de verdade, não
-  //    precisamos da proteção aqui.
+  // 2) Mês já confirmado que existe nessa planilha: busca com o nome EXATO
+  //    de verdade da aba (conferido direto na planilha, ver NOME_REAL_ABA).
+  //    Importante: aqui NÃO iteramos por várias grafias adivinhadas — se a
+  //    primeira tentativa não bater exatamente com o nome real da aba, o
+  //    Google devolve por engano os dados da primeira aba da planilha, e
+  //    como esse caminho não usa a checagem de fallback (ela não pode ser
+  //    usada aqui — ver comentário abaixo), aceitaríamos esse dado errado.
+  //    Por isso usamos direto o nome já confirmado, sem chute.
   if(confirmado) {
-    for(const nomeTentativa of variantes) {
-      let candidato = null;
-      try { candidato = await fetchSheetRaw(sheetId, nomeTentativa); } catch(e) { candidato = null; }
-      if(candidato) return parseSheetJson(candidato);
-    }
-    return [];
+    const nomeReal = NOME_REAL_ABA[sheetName] || sheetName;
+    let candidato = null;
+    try { candidato = await fetchSheetRaw(sheetId, nomeReal); } catch(e) { candidato = null; }
+    return candidato ? parseSheetJson(candidato) : [];
   }
 
   // 3) Mês NÃO confirmado (ex: aba nova criada depois) — aqui sim vale a
   //    proteção contra o fallback silencioso do Google, pra não mostrar
-  //    dado de outro mês por engano.
+  //    dado de outro mês por engano. Essa proteção não pode ser usada no
+  //    caminho "confirmado" acima porque, se o mês pedido for justamente a
+  //    PRIMEIRA aba da planilha, o conteúdo dela é idêntico ao do fallback
+  //    por coincidência (é a mesma aba!), e a checagem descartaria dado
+  //    verdadeiro.
+  const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
   const fallbackSig = await getFallbackSignature(sheetId);
   const tentadas = new Set();
   let json = null;
