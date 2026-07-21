@@ -45,6 +45,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .logo-sub{font-size:10px;color:var(--muted);font-weight:400;}
 .nav-section{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:1.25rem 10px 6px;opacity:.6;}
 .nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;}
+.nav-item:active{transform:scale(.97);}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,.05);}
 .nav-item.active{color:var(--text);background:var(--purple-dim);border:1px solid var(--border-glow);}
 .nav-item svg{flex-shrink:0;opacity:.6;}
@@ -82,31 +83,56 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .mes-dropdown-btn{
   display:flex;align-items:center;gap:8px;
   background:var(--surface);border:1px solid var(--border);border-radius:8px;
-  padding:7px 12px;font-size:12px;color:var(--text);
-  font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color .15s;
+  padding:7px 10px 7px 12px;font-size:12px;color:var(--text);font-weight:500;
+  font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .15s;
 }
-.mes-dropdown-btn:hover{border-color:var(--border-glow);}
+.mes-dropdown-btn svg.cal-icon{color:var(--purple-bright);flex-shrink:0;opacity:.9;}
+.mes-dropdown-btn:hover{border-color:var(--border-glow);box-shadow:0 0 0 3px rgba(123,63,245,.08);}
+.mes-dropdown-btn:active{transform:scale(.97);}
+.mes-dropdown-btn.open{border-color:var(--purple);box-shadow:0 0 0 3px rgba(123,63,245,.14);}
+.mes-dropdown-chev{transition:transform .25s cubic-bezier(.22,1,.36,1);color:var(--muted);}
+.mes-dropdown-chev.open{transform:rotate(180deg);color:var(--purple-bright);}
 .mes-dropdown-panel{
-  position:absolute;top:calc(100% + 6px);right:0;min-width:220px;
-  background:var(--surface2);border:1px solid var(--border-glow);border-radius:10px;
-  padding:.6rem;z-index:100;box-shadow:0 12px 30px rgba(0,0,0,.4);
-  display:none;max-height:340px;overflow-y:auto;
+  position:absolute;top:calc(100% + 8px);right:0;min-width:230px;
+  background:var(--surface2);border:1px solid var(--border-glow);border-radius:14px;
+  padding:.7rem;z-index:100;box-shadow:0 20px 45px rgba(0,0,0,.5),0 0 0 1px rgba(155,107,255,.05);
+  max-height:380px;overflow-y:auto;
+  opacity:0;visibility:hidden;transform:translateY(-8px) scale(.97);transform-origin:top right;
+  transition:opacity .2s ease,transform .2s cubic-bezier(.22,1,.36,1),visibility 0s linear .2s;
 }
-.mes-dropdown-panel.open{display:block;}
-.mes-dropdown-actions{display:flex;gap:6px;margin-bottom:.5rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);}
+.mes-dropdown-panel::-webkit-scrollbar{width:4px;}
+.mes-dropdown-panel::-webkit-scrollbar-thumb{background:var(--purple);border-radius:3px;}
+.mes-dropdown-panel.open{
+  opacity:1;visibility:visible;transform:translateY(0) scale(1);
+  transition:opacity .2s ease,transform .2s cubic-bezier(.22,1,.36,1),visibility 0s;
+}
+.mes-dropdown-actions{display:flex;gap:6px;margin-bottom:.6rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
 .mes-dropdown-actions button{
-  flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;
-  color:var(--text);font-size:11px;padding:5px 6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;
+  flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;
+  color:var(--text);font-size:10.5px;font-weight:600;padding:6px 6px;cursor:pointer;
+  font-family:'Syne',sans-serif;letter-spacing:.02em;transition:background .15s,border-color .15s,transform .12s;
 }
-.mes-dropdown-actions button:hover{background:rgba(255,255,255,.1);}
+.mes-dropdown-actions button:hover{background:var(--purple-dim);border-color:var(--border-glow);}
+.mes-dropdown-actions button:active{transform:scale(.94);}
+.mes-quarter-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);opacity:.55;padding:8px 8px 3px;}
+.mes-quarter-label:first-child{padding-top:2px;}
 .mes-dropdown-item{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;
-  font-size:12.5px;color:var(--text);transition:background .15s;
+  display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;
+  font-size:12.5px;color:var(--text);transition:background .15s;position:relative;
 }
 .mes-dropdown-item:hover{background:rgba(255,255,255,.06);}
-.mes-dropdown-item input{accent-color:var(--purple);cursor:pointer;}
+.mes-dropdown-item.checked{background:var(--purple-dim);color:var(--purple-bright);font-weight:600;}
+.mes-chk{
+  width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;background:rgba(255,255,255,.03);
+}
+.mes-dropdown-item.checked .mes-chk{background:var(--purple);border-color:var(--purple);}
+.mes-chk svg{width:10px;height:10px;opacity:0;transform:scale(.5);transition:all .15s;color:#fff;}
+.mes-dropdown-item.checked .mes-chk svg{opacity:1;transform:scale(1);}
+.mes-dropdown-item input{position:absolute;opacity:0;width:0;height:0;pointer-events:none;}
 
 .btn-refresh{background:var(--purple);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.btn-refresh:active{transform:scale(.95);}
 .btn-refresh:hover{background:var(--purple-bright);transform:translateY(-1px);}
 .btn-refresh.spinning svg{animation:spin 1s linear infinite;}
 .last-sync{font-size:10px;color:var(--muted);}
@@ -121,7 +147,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .stat-card{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
   padding:1.2rem;position:relative;overflow:hidden;
+  transition:transform .2s cubic-bezier(.22,1,.36,1),border-color .2s,box-shadow .2s;
 }
+.stat-card:hover{transform:translateY(-3px);border-color:var(--border-glow);box-shadow:0 10px 28px rgba(0,0,0,.35);}
+.anim-in .stat-card{animation:fadeUp .45s cubic-bezier(.22,1,.36,1) backwards;}
+.anim-in .stat-card:nth-child(1){animation-delay:.01s;}
+.anim-in .stat-card:nth-child(2){animation-delay:.06s;}
+.anim-in .stat-card:nth-child(3){animation-delay:.11s;}
+.anim-in .stat-card:nth-child(4){animation-delay:.16s;}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--purple),transparent);}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
 .stat-value{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;line-height:1;}
@@ -133,7 +166,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .stat-sub{font-size:10.5px;color:var(--muted);margin-top:5px;}
 
 /* ── CARDS ── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1.2rem;position:relative;overflow:hidden;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1.2rem;position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+.card:hover{border-color:var(--border-glow);box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.anim-in .card{animation:fadeUp .4s cubic-bezier(.22,1,.36,1) backwards;}
+.anim-in .grid2 .card:nth-child(2),.anim-in .grid3 .card:nth-child(2){animation-delay:.05s;}
+.anim-in .grid3 .card:nth-child(3){animation-delay:.1s;}
 .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(155,107,255,.35),transparent);}
 .card-title{font-family:'Syne',sans-serif;font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem;}
 
@@ -216,6 +253,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .cli-list::-webkit-scrollbar{width:3px;}
 .cli-list::-webkit-scrollbar-thumb{background:var(--purple);border-radius:2px;}
 .cli-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;cursor:pointer;transition:all .15s;}
+.cli-item:active{transform:scale(.98);}
 .cli-item:hover{border-color:var(--border-glow);background:var(--purple-dim);}
 .cli-item.active{border-color:var(--purple);background:var(--purple-dim);}
 .cli-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
@@ -248,6 +286,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .drawer-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;}
 .drawer-sub{font-size:11px;color:var(--muted);margin-top:3px;}
 .drawer-close{background:rgba(255,255,255,.07);border:none;border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s;}
+.drawer-close:active{transform:scale(.9) rotate(90deg);}
 .drawer-close:hover{background:rgba(255,255,255,.12);color:var(--text);}
 .drawer-body{flex:1;overflow-y:auto;padding:1rem 1.5rem;}
 .drawer-body::-webkit-scrollbar{width:3px;}
@@ -349,8 +388,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
       <div class="mes-dropdown" id="mesDropdown">
         <button class="mes-dropdown-btn" id="btnMesDropdown" onclick="toggleMesDropdown(event)">
+          <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           <span id="mesDropdownLabel">Carregando…</span>
-          <span style="font-size:10px;color:var(--muted);">▾</span>
+          <svg class="mes-dropdown-chev" id="mesDropdownChev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="mes-dropdown-panel" id="mesDropdownPanel">
           <div class="mes-dropdown-actions">
@@ -500,12 +540,51 @@ let selectedCliente = 0;
 
 // ── HELPERS ──────────────────────────────────────────────────────
 const fmt = n => n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-const fmtK = n => n >= 1000 ? 'R$' + (n/1000).toFixed(1) + 'k' : 'R$' + fmt(n);
+const fmtK = n => n >= 1000 ? 'R$' + (n/1000).toFixed(2) + 'k' : 'R$' + fmt(n);
 const parseMoney = s => {
   if(!s) return 0;
   return parseFloat(String(s).replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.')) || 0;
 };
 const destroyChart = id => { if(charts[id]){ charts[id].destroy(); delete charts[id]; } };
+
+// Anima barras de progresso (.pf e .funil-fill) de 0% até a largura real,
+// usando o atributo data-w guardado no HTML. Chamar depois de inserir o
+// innerHTML na página.
+function animarBarras(root) {
+  root = root || document;
+  requestAnimationFrame(() => {
+    root.querySelectorAll('[data-w]').forEach(el => {
+      requestAnimationFrame(() => { el.style.width = el.dataset.w; });
+    });
+  });
+}
+
+// Anima um número subindo de 0 até o valor final (usado nos cards de
+// destaque). "formatter" recebe o valor atual (number) e devolve a string
+// exibida.
+function animarNumero(el, valorFinal, formatter, duracao) {
+  if(!el) return;
+  duracao = duracao || 900;
+  const inicio = performance.now();
+  function passo(agora) {
+    const t = Math.min((agora - inicio) / duracao, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = formatter(valorFinal * eased);
+    if(t < 1) requestAnimationFrame(passo);
+    else el.textContent = formatter(valorFinal);
+  }
+  requestAnimationFrame(passo);
+}
+
+// Quando true, os renders pulam a animação de entrada dos cards (usado
+// enquanto o usuário está digitando em um campo, pra não "piscar" a cada
+// tecla). Fica true só durante o ciclo de save→render dos inputs.
+let SUPPRESS_ENTRANCE = false;
+function renderSemAnimarEntrada(fn) {
+  SUPPRESS_ENTRANCE = true;
+  fn();
+  SUPPRESS_ENTRANCE = false;
+}
 
 function getVendedor() { return document.getElementById('selVendedor').value; }
 
@@ -527,29 +606,51 @@ function labelMeses() {
 
 function toggleMesDropdown(e) {
   if(e) e.stopPropagation();
-  document.getElementById('mesDropdownPanel').classList.toggle('open');
+  const isOpen = document.getElementById('mesDropdownPanel').classList.toggle('open');
+  document.getElementById('mesDropdownChev').classList.toggle('open', isOpen);
+  document.getElementById('btnMesDropdown').classList.toggle('open', isOpen);
+}
+function closeMesDropdown() {
+  document.getElementById('mesDropdownPanel').classList.remove('open');
+  document.getElementById('mesDropdownChev').classList.remove('open');
+  document.getElementById('btnMesDropdown').classList.remove('open');
 }
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('mesDropdownPanel');
   const btn = document.getElementById('btnMesDropdown');
-  if(panel && panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) {
-    panel.classList.remove('open');
+  if(panel && panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
+    closeMesDropdown();
   }
 });
+
+const TRIMESTRES = [
+  {label:'Jan – Mar', meses:['JANEIRO','FEVEREIRO','MARCO']},
+  {label:'Abr – Jun', meses:['ABRIL','MAIO','JUNHO']},
+  {label:'Jul – Set', meses:['JULHO','AGOSTO','SETEMBRO']},
+  {label:'Out – Dez', meses:['OUTUBRO','NOVEMBRO','DEZEMBRO']},
+];
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
 
 function renderMesDropdownList() {
   const list = document.getElementById('mesDropdownList');
   if(!list) return;
-  list.innerHTML = MESES.map(m => `
-    <label class="mes-dropdown-item">
-      <input type="checkbox" value="${m}" ${MESES_SELECIONADOS.includes(m)?'checked':''} onchange="onMesCheckboxChange()">
-      ${MESES_PT[m]}
-    </label>`).join('');
+  list.innerHTML = TRIMESTRES.map(tri => `
+    <div class="mes-quarter-label">${tri.label}</div>
+    ${tri.meses.map(m => `
+      <label class="mes-dropdown-item${MESES_SELECIONADOS.includes(m)?' checked':''}" data-mes="${m}">
+        <input type="checkbox" value="${m}" ${MESES_SELECIONADOS.includes(m)?'checked':''} onchange="onMesCheckboxChange()">
+        <span class="mes-chk">${CHECK_SVG}</span>
+        ${MESES_PT[m]}
+      </label>`).join('')}
+  `).join('');
 }
 
 function onMesCheckboxChange() {
   const checks = document.querySelectorAll('#mesDropdownList input[type=checkbox]');
   MESES_SELECIONADOS = Array.from(checks).filter(c => c.checked).map(c => c.value);
+  document.querySelectorAll('#mesDropdownList .mes-dropdown-item').forEach(label => {
+    label.classList.toggle('checked', MESES_SELECIONADOS.includes(label.dataset.mes));
+  });
   document.getElementById('mesDropdownLabel').textContent = labelMeses();
   loadAll();
 }
@@ -854,21 +955,23 @@ function renderDashboard() {
          <div class="meta-sub">Selecione um único mês pra ver o detalhamento semanal (sprints).</div>
        </div>`;
 
+  const animCls = SUPPRESS_ENTRANCE ? '' : 'anim-in';
+
   document.getElementById('pg-dashboard').innerHTML = `
-    <div class="stats-row">
+    <div class="stats-row ${animCls}">
       <div class="stat-card">
         <div class="stat-label">Receita Total</div>
-        <div class="stat-value green">R$${fmtK(rec).replace('R$','')}</div>
+        <div class="stat-value green" id="db-rec-val">R$0</div>
         <div class="stat-sub">${labelMeses()} · ${vLabel}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Clientes</div>
-        <div class="stat-value purple">${nClientes}</div>
+        <div class="stat-value purple" id="db-nclientes-val">0</div>
         <div class="stat-sub">fechamentos no período</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Ticket Médio</div>
-        <div class="stat-value blue">R$${fmtK(tk).replace('R$','')}</div>
+        <div class="stat-value blue" id="db-tk-val">R$0</div>
         <div class="stat-sub">por fechamento</div>
       </div>
       <div class="stat-card">
@@ -878,7 +981,7 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div class="grid2" style="margin-bottom:1.2rem">
+    <div class="grid2 ${animCls}" style="margin-bottom:1.2rem">
       <div class="card">
         <div class="card-title">Meta do Período</div>
         <div class="meta-header">
@@ -887,7 +990,7 @@ function renderDashboard() {
           </div>
           <span class="badge ${metaBadgeClass}">${pctMeta}%</span>
         </div>
-        <div class="pb"><div class="pf" id="db-metabar" style="width:0%;background:var(--${metaColor === 'green' ? 'green' : metaColor === 'yellow' ? 'yellow' : 'red'});"></div></div>
+        <div class="pb"><div class="pf" id="db-metabar" data-w="${pctMeta}%" style="width:0%;background:var(--${metaColor === 'green' ? 'green' : metaColor === 'yellow' ? 'yellow' : 'red'});"></div></div>
         <div class="meta-sub">${pctMeta >= 100 ? '✓ Meta atingida!' : 'Faltam R$' + fmt(meta - rec)}</div>
         ${metaInputHTML}
       </div>
@@ -899,26 +1002,30 @@ function renderDashboard() {
 
     ${sprintsCardHTML}`;
 
-  // animate meta bar
-  setTimeout(() => {
-    const bar = document.getElementById('db-metabar');
-    if(bar) bar.style.width = pctMeta + '%';
-  }, 100);
+  // números subindo + barra de meta animando
+  animarNumero(document.getElementById('db-rec-val'), rec, x => 'R$'+fmtK(x).replace('R$',''));
+  animarNumero(document.getElementById('db-nclientes-val'), nClientes, x => Math.round(x).toString());
+  animarNumero(document.getElementById('db-tk-val'), tk, x => 'R$'+fmtK(x).replace('R$',''));
+  animarBarras(document.getElementById('pg-dashboard'));
 
   // funil
   const canal_entries = Object.entries(canais).sort((a,b)=>b[1]-a[1]);
   const maxVal = canal_entries[0] ? canal_entries[0][1] : 1;
   const colors = ['#9B6BFF','#4ade80','#60a5fa','#fbbf24','#f87171','#f472b6'];
-  document.getElementById('db-funil').innerHTML = canal_entries.slice(0,4).map(([canal,val],i) => `
+  document.getElementById('db-funil').innerHTML = canal_entries.slice(0,4).map(([canal,val],i) => {
+    const w = Math.max(Math.round(val/maxVal*100),8);
+    return `
     <div class="funil-row">
       <span class="funil-lbl">${canal}</span>
       <div class="funil-wrap">
-        <div class="funil-fill" style="width:${Math.max(Math.round(val/maxVal*100),8)}%;background:${colors[i]}33;color:${colors[i]};border:1px solid ${colors[i]}55;">
+        <div class="funil-fill" data-w="${w}%" style="width:0%;background:${colors[i]}33;color:${colors[i]};border:1px solid ${colors[i]}55;">
           ${nClientes ? rows.filter(r=>r.canal===canal).length : 0}
         </div>
       </div>
       <span class="funil-pct">${Math.round(val/rec*100)}%</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  animarBarras(document.getElementById('db-funil'));
 
   // sprints com valores manuais (cards colapsáveis) — só faz sentido pra um único mês
   if(!mesUnico) return;
@@ -940,7 +1047,7 @@ function renderDashboard() {
         const cl = sp>=100?'b-green':sp>=60?'b-yellow':'b-red';
         return `<div class="sprint-row" style="grid-template-columns:90px 1fr 140px 80px;margin-bottom:8px;">
           <span class="sprint-lbl">${lbl.split(' ').slice(0,2).join(' ')}</span>
-          <div class="pb" style="margin:0"><div class="pf" style="width:${sp}%;background:var(--purple);"></div></div>
+          <div class="pb" style="margin:0"><div class="pf" data-w="${sp}%" style="width:0%;background:var(--purple);"></div></div>
           <input type="number" placeholder="R$ realizado" value="${sv||''}"
             style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);font-family:'DM Sans',sans-serif;width:130px;"
             oninput="saveSprint('${vd.nome}','${mes}',${i},this.value)">
@@ -961,6 +1068,7 @@ function renderDashboard() {
       <div class="sprint-block-body${collapsed?' collapsed':''}" id="spb-${key}">${body}</div>
     </div>`;
   }).join('');
+  animarBarras(document.getElementById('db-sprints'));
 }
 
 function distribuitSprints(nomeVendedor, mes) {
@@ -978,7 +1086,7 @@ function saveSprint(nomeVendedor, mes, idx, val) {
   const vals = distribuitSprints(nomeVendedor, mes);
   vals[idx] = parseFloat(val) || 0;
   try { localStorage.setItem(key, JSON.stringify(vals)); } catch(e) {}
-  renderMetas();
+  renderSemAnimarEntrada(renderAll);
 }
 
 function saveMeta(val) {
@@ -993,7 +1101,7 @@ function saveMeta(val) {
     METAS[VENDEDORES[parseInt(v)].nome][m] = numVal;
   }
   saveMetas();
-  renderDashboard();
+  renderSemAnimarEntrada(renderDashboard);
 }
 
 // ── METAS ────────────────────────────────────────────────────────
@@ -1015,8 +1123,10 @@ function renderMetas() {
     return;
   }
 
+  const animCls = SUPPRESS_ENTRANCE ? '' : 'anim-in';
+
   document.getElementById('pg-metas').innerHTML = `
-    <div class="stats-row">
+    <div class="stats-row ${animCls}">
       <div class="stat-card">
         <div class="stat-label">Meta do Período</div>
         <div class="stat-value purple">R$${fmtK(meta).replace('R$','')}</div>
@@ -1040,7 +1150,7 @@ function renderMetas() {
     </div>
 
     <div class="section-title">Meta por Vendedor — ${labelMeses()}</div>
-    <div class="grid${vendedoresShow.length > 1 ? '3' : '2'}">
+    <div class="grid${vendedoresShow.length > 1 ? '3' : '2'} ${animCls}">
       ${vendedoresShow.map(vd => {
         const vRows = mesesSel.reduce((acc,m) => acc.concat((allData[vd.nome] && allData[vd.nome][m]) || []), []);
         const vRec = vRows.reduce((s,r) => s+r.val, 0);
@@ -1057,7 +1167,7 @@ function renderMetas() {
           <div class="card-title">${vd.nome}</div>
           <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:.4rem;">R$${fmt(vRec)}</div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:.6rem;">meta: R$${fmt(vMeta)}</div>
-          <div class="pb"><div class="pf" style="width:${vPct}%;background:var(--purple);"></div></div>
+          <div class="pb"><div class="pf" data-w="${vPct}%" style="width:0%;background:var(--purple);"></div></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;">
             <span style="font-size:11px;color:var(--muted);">${vPct>=100?'✓ Meta atingida!':'Faltam R$'+fmt(vMeta-vRec)}</span>
             <span class="badge ${vCl}">${vPct}%</span>
@@ -1088,7 +1198,7 @@ function renderMetas() {
           const cl = sp>=100?'b-green':sp>=60?'b-yellow':'b-red';
           return `<div class="sprint-row" style="grid-template-columns:95px 1fr 160px 85px;margin-bottom:10px;gap:10px;">
             <span class="sprint-lbl">${lbl}</span>
-            <div class="pb" style="margin:0"><div class="pf" style="width:${sp}%;background:var(--purple);"></div></div>
+            <div class="pb" style="margin:0"><div class="pf" data-w="${sp}%" style="width:0%;background:var(--purple);"></div></div>
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:11px;color:var(--muted);">R$</span>
               <input type="number" placeholder="0" value="${sv||''}"
@@ -1116,12 +1226,14 @@ function renderMetas() {
     }).join('')}` : `
     <div class="section-title">Sprints Semanais</div>
     <div class="card"><div class="meta-sub">Selecione um único mês pra ver e editar as sprints semanais.</div></div>`}`;
+
+  animarBarras(document.getElementById('pg-metas'));
 }
 
 function saveMetaVendedor(nome, mes, val) {
   METAS[nome][mes] = parseFloat(val) || 50000;
   saveMetas();
-  renderMetas();
+  renderSemAnimarEntrada(renderMetas);
 }
 
 // ── CLIENTES ─────────────────────────────────────────────────────
@@ -1233,7 +1345,7 @@ function renderCanais() {
       Clique em qualquer canal, produto ou linha da tabela para ver os clientes detalhados
     </div>
 
-    <div class="stats-row" style="grid-template-columns:repeat(${Math.min(cEntries.length,4)},1fr)">
+    <div class="stats-row anim-in" style="grid-template-columns:repeat(${Math.min(cEntries.length,4)},1fr)">
       ${cEntries.slice(0,4).map(([c,v],i) => {
         const cnt = rows.filter(r=>r.canal===c).length;
         return `<div class="stat-card clickable" onclick="openDrawer('canal','${c.replace(/'/g,"\\'")}')">
@@ -1245,7 +1357,7 @@ function renderCanais() {
       }).join('')}
     </div>
 
-    <div class="grid2">
+    <div class="grid2 anim-in">
       <div class="card">
         <div class="card-title">Receita por Canal <span style="font-weight:400;opacity:.5;font-size:9px;margin-left:4px;">· clique para detalhar</span></div>
         ${cEntries.map(([c,v],i) => `
@@ -1254,7 +1366,7 @@ function renderCanais() {
             <span style="display:flex;align-items:center;gap:6px;">${c} <span style="font-size:10px;color:var(--muted);">${rows.filter(r=>r.canal===c).length} clientes</span></span>
             <span class="bar-val">R$${fmt(v)}</span>
           </div>
-          <div class="pb"><div class="pf" style="width:${Math.round(v/maxC*100)}%;background:${barColors[i%barColors.length]};"></div></div>
+          <div class="pb"><div class="pf" data-w="${Math.round(v/maxC*100)}%" style="width:0%;background:${barColors[i%barColors.length]};"></div></div>
         </div>`).join('')}
       </div>
       <div class="card">
@@ -1265,7 +1377,7 @@ function renderCanais() {
             <span style="display:flex;align-items:center;gap:6px;">${p} <span style="font-size:10px;color:var(--muted);">${rows.filter(r=>r.prod===p).length} clientes</span></span>
             <span class="bar-val">R$${fmt(v)}</span>
           </div>
-          <div class="pb"><div class="pf" style="width:${Math.round(v/maxP*100)}%;background:${barColors[i%barColors.length]};"></div></div>
+          <div class="pb"><div class="pf" data-w="${Math.round(v/maxP*100)}%" style="width:0%;background:${barColors[i%barColors.length]};"></div></div>
         </div>`).join('')}
       </div>
     </div>
@@ -1317,6 +1429,8 @@ function renderCanais() {
         </table>
       </div>
     </div>`;
+
+  animarBarras(document.getElementById('pg-canais'));
 }
 
 // ── DRAWER ───────────────────────────────────────────────────────
