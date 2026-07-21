@@ -438,19 +438,33 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <script>
 
 const VENDEDORES = [
-  { nome: 'Jessica Aguiar', id: '1B9LdvK_SZlBlu_BB0nfllL1OFFsXLXLtzDa12ldvnkc' },
-  { nome: 'Talita',         id: '1m6BDV69LfJXtOGCdlwQ9FAIvFsqAfGPPWRxvDS9zO5s' },
-  { nome: 'Jessica Campos', id: '1weHdLnvr7tUa0C8krB2grvUtEonSNb7zl2FiLrMahfY' },
-  { nome: 'Maju', id: '1RDclXU_kWqeSdod7GJd4Gzc_tH1fuZV15l2yKRsjETo', gids: { JULHO: '1413332086' } },
-  { nome: 'Vinicius', id: '1bO8jW7y0MXVOiUrQzBCScvnyoavCwga_YHXv5mUWpWQ', gids: { JULHO: '1413332086' } },
-  { nome: 'Renato', id: '1DTn-QkVs95EJtp-SSPtGEzWck_VmT0ujJYp2t3TteFE' },
-  { nome: 'Rodolfo', id: '1HAcMxyEOzDM2EpbZAZFTKTmn7DFpTspP_sQ8rly5KJ0' },
-  // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI' },
+  // "mesesConfirmados" = meses que eu conferi de verdade (via Google Drive)
+  // que existem em cada planilha hoje. Pra esses, o dashboard busca direto
+  // pelo nome, sem depender de nenhuma heurística — 100% seguro. Pra
+  // qualquer mês que NÃO esteja nessa lista (ex: o vendedor criou uma aba
+  // nova depois), o dashboard ainda tenta buscar de forma genérica (ver
+  // fetchSheet), mas com uma proteção que só entra em ação com segurança
+  // porque o primeiro mês real de cada vendedor já está confirmado aqui.
+  { nome: 'Jessica Aguiar', id: '1B9LdvK_SZlBlu_BB0nfllL1OFFsXLXLtzDa12ldvnkc',
+    mesesConfirmados: ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Talita Pinheiro', id: '1m6BDV69LfJXtOGCdlwQ9FAIvFsqAfGPPWRxvDS9zO5s',
+    mesesConfirmados: ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Jessica Campos', id: '1weHdLnvr7tUa0C8krB2grvUtEonSNb7zl2FiLrMahfY',
+    mesesConfirmados: ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Mariah Julia', id: '1RDclXU_kWqeSdod7GJd4Gzc_tH1fuZV15l2yKRsjETo', gids: { JULHO: '1413332086' },
+    mesesConfirmados: ['JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Vinicius Nascimento', id: '1bO8jW7y0MXVOiUrQzBCScvnyoavCwga_YHXv5mUWpWQ', gids: { JULHO: '1413332086' },
+    mesesConfirmados: ['JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Renato', id: '1DTn-QkVs95EJtp-SSPtGEzWck_VmT0ujJYp2t3TteFE',
+    mesesConfirmados: ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  { nome: 'Rodolfo', id: '1HAcMxyEOzDM2EpbZAZFTKTmn7DFpTspP_sQ8rly5KJ0',
+    mesesConfirmados: ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'] },
+  // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI', mesesConfirmados: ['JULHO','AGOSTO'] },
 ];
-// Não é preciso dizer quais meses cada vendedor tem — o dashboard tenta
-// todos os meses pra todo mundo. Se um mês não existir ou estiver vazio
-// naquela planilha, ele simplesmente não aparece (sem misturar com outro
-// mês) — ver a proteção "sinatura de fallback" em fetchSheet mais abaixo.
+// Vendedores renomeados — mantém as metas/sprints já salvas no navegador
+// migrando do nome antigo pro novo (senão a pessoa "perderia" o que já
+// tinha digitado, já que essas coisas ficam salvas com o nome como chave).
+const NOMES_RENOMEADOS = { 'Talita':'Talita Pinheiro', 'Maju':'Mariah Julia', 'Vinicius':'Vinicius Nascimento' };
 const MESES = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const MESES_PT = {JANEIRO:'Janeiro',FEVEREIRO:'Fevereiro',MARCO:'Março',ABRIL:'Abril',MAIO:'Maio',JUNHO:'Junho',JULHO:'Julho',AGOSTO:'Agosto',SETEMBRO:'Setembro',OUTUBRO:'Outubro',NOVEMBRO:'Novembro',DEZEMBRO:'Dezembro'};
 // Variações de grafia aceitas para cada mês ao buscar a aba na planilha
@@ -495,6 +509,28 @@ function saveMetas() {
 }
 
 const METAS = loadMetas();
+
+// Migra metas/sprints salvos sob o nome antigo (antes do rename) pro nome novo,
+// assim ninguém perde meta ou sprint já digitados por causa da troca de nome.
+Object.entries(NOMES_RENOMEADOS).forEach(([antigo, novo]) => {
+  if(METAS[antigo] && !METAS[novo]) {
+    METAS[novo] = METAS[antigo];
+    delete METAS[antigo];
+  }
+  MESES.forEach(m => {
+    try {
+      const antigoKey = `sprints_${antigo}_${m}`;
+      const novoKey = `sprints_${novo}_${m}`;
+      const val = localStorage.getItem(antigoKey);
+      if(val !== null && localStorage.getItem(novoKey) === null) {
+        localStorage.setItem(novoKey, val);
+        localStorage.removeItem(antigoKey);
+      }
+    } catch(e) {}
+  });
+});
+saveMetas();
+
 // Garante que novos vendedores adicionados ao array também tenham metas
 VENDEDORES.forEach(v => {
   if(!METAS[v.nome]) METAS[v.nome] = {};
@@ -771,12 +807,29 @@ async function fetchSheet(vd, sheetName) {
     return [];
   }
 
-  // 2) Sem gid: tenta pelo nome (com variações comuns de grafia), mas
-  //    descarta qualquer resposta que seja idêntica ao "fallback" (ou seja,
-  //    que não bateu de verdade com o mês pedido — o Google só devolveu a
-  //    primeira aba da planilha por engano).
-  const fallbackSig = await getFallbackSignature(sheetId);
   const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
+  const confirmado = vd.mesesConfirmados && vd.mesesConfirmados.includes(sheetName);
+
+  // 2) Mês já confirmado que existe nessa planilha: busca direto pelo nome,
+  //    SEM aplicar a checagem de "fallback" — essa checagem não pode ser
+  //    usada aqui porque, se esse mês for justamente a PRIMEIRA aba da
+  //    planilha, o conteúdo dela é idêntico ao do fallback do Google por
+  //    coincidência (mesma aba), e a checagem acabaria descartando dados
+  //    verdadeiros. Como já confirmamos que a aba existe de verdade, não
+  //    precisamos da proteção aqui.
+  if(confirmado) {
+    for(const nomeTentativa of variantes) {
+      let candidato = null;
+      try { candidato = await fetchSheetRaw(sheetId, nomeTentativa); } catch(e) { candidato = null; }
+      if(candidato) return parseSheetJson(candidato);
+    }
+    return [];
+  }
+
+  // 3) Mês NÃO confirmado (ex: aba nova criada depois) — aqui sim vale a
+  //    proteção contra o fallback silencioso do Google, pra não mostrar
+  //    dado de outro mês por engano.
+  const fallbackSig = await getFallbackSignature(sheetId);
   const tentadas = new Set();
   let json = null;
   for(const nomeTentativa of variantes) {
