@@ -78,6 +78,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sel-wrap select:focus{outline:none;border-color:var(--purple);}
 .sel-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted);pointer-events:none;}
 
+/* mês (multi-seleção) */
+.mes-dropdown{position:relative;}
+.mes-dropdown-btn{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;font-size:12px;color:var(--text);
+  font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color .15s;
+}
+.mes-dropdown-btn:hover{border-color:var(--border-glow);}
+.mes-dropdown-panel{
+  position:absolute;top:calc(100% + 6px);right:0;min-width:220px;
+  background:var(--surface2);border:1px solid var(--border-glow);border-radius:10px;
+  padding:.6rem;z-index:100;box-shadow:0 12px 30px rgba(0,0,0,.4);
+  display:none;max-height:340px;overflow-y:auto;
+}
+.mes-dropdown-panel.open{display:block;}
+.mes-dropdown-actions{display:flex;gap:6px;margin-bottom:.5rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);}
+.mes-dropdown-actions button{
+  flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-size:11px;padding:5px 6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;
+}
+.mes-dropdown-actions button:hover{background:rgba(255,255,255,.1);}
+.mes-dropdown-item{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;
+  font-size:12.5px;color:var(--text);transition:background .15s;
+}
+.mes-dropdown-item:hover{background:rgba(255,255,255,.06);}
+.mes-dropdown-item input{accent-color:var(--purple);cursor:pointer;}
+
 .btn-refresh{background:var(--purple);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;}
 .btn-refresh:hover{background:var(--purple-bright);transform:translateY(-1px);}
 .btn-refresh.spinning svg{animation:spin 1s linear infinite;}
@@ -319,21 +348,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <option value="all">Todos os vendedores</option>
         </select>
       </div>
-      <div class="sel-wrap">
-        <select id="selMes" onchange="onFilterChange()">
-          <option value="JANEIRO">Janeiro</option>
-          <option value="FEVEREIRO">Fevereiro</option>
-          <option value="MARCO">Março</option>
-          <option value="ABRIL">Abril</option>
-          <option value="MAIO">Maio</option>
-          <option value="JUNHO">Junho</option>
-          <option value="JULHO">Julho</option>
-          <option value="AGOSTO">Agosto</option>
-          <option value="SETEMBRO">Setembro</option>
-          <option value="OUTUBRO">Outubro</option>
-          <option value="NOVEMBRO">Novembro</option>
-          <option value="DEZEMBRO">Dezembro</option>
-        </select>
+      <div class="mes-dropdown" id="mesDropdown">
+        <button class="mes-dropdown-btn" id="btnMesDropdown" onclick="toggleMesDropdown(event)">
+          <span id="mesDropdownLabel">Carregando…</span>
+          <span style="font-size:10px;color:var(--muted);">▾</span>
+        </button>
+        <div class="mes-dropdown-panel" id="mesDropdownPanel">
+          <div class="mes-dropdown-actions">
+            <button onclick="selecionarTodosMeses()">Todos os meses</button>
+            <button onclick="limparMeses()">Limpar</button>
+          </div>
+          <div id="mesDropdownList"></div>
+        </div>
       </div>
       <button class="btn-refresh" id="btn-refresh" onclick="loadAll()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
@@ -376,16 +402,16 @@ const VENDEDORES = [
   { nome: 'Jessica Aguiar', id: '1B9LdvK_SZlBlu_BB0nfllL1OFFsXLXLtzDa12ldvnkc' },
   { nome: 'Talita',         id: '1m6BDV69LfJXtOGCdlwQ9FAIvFsqAfGPPWRxvDS9zO5s' },
   { nome: 'Jessica Campos', id: '1weHdLnvr7tUa0C8krB2grvUtEonSNb7zl2FiLrMahfY' },
-  { nome: 'Maju', id: '1RDclXU_kWqeSdod7GJd4Gzc_tH1fuZV15l2yKRsjETo' },
-  // Vinicius só tem abas de JULHO em diante nessa planilha. Sem o mesInicio
-  // abaixo, pedir um mês anterior (ex: Abril) faria o Google Sheets devolver
-  // por engano os dados da primeira aba existente (Julho) — por isso
-  // travamos aqui para nunca nem tentar buscar meses que não existem.
-  { nome: 'Vinicius', id: '1bO8jW7y0MXVOiUrQzBCScvnyoavCwga_YHXv5mUWpWQ', mesInicio: 'JULHO' },
+  { nome: 'Maju', id: '1RDclXU_kWqeSdod7GJd4Gzc_tH1fuZV15l2yKRsjETo', gids: { JULHO: '1413332086' } },
+  { nome: 'Vinicius', id: '1bO8jW7y0MXVOiUrQzBCScvnyoavCwga_YHXv5mUWpWQ', gids: { JULHO: '1413332086' } },
   { nome: 'Renato', id: '1DTn-QkVs95EJtp-SSPtGEzWck_VmT0ujJYp2t3TteFE' },
   { nome: 'Rodolfo', id: '1HAcMxyEOzDM2EpbZAZFTKTmn7DFpTspP_sQ8rly5KJ0' },
-  // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI', mesInicio: 'JULHO', mesFim: 'DEZEMBRO' },
+  // { nome: 'Novo Vendedor', id: 'COLE_O_ID_AQUI' },
 ];
+// Não é preciso dizer quais meses cada vendedor tem — o dashboard tenta
+// todos os meses pra todo mundo. Se um mês não existir ou estiver vazio
+// naquela planilha, ele simplesmente não aparece (sem misturar com outro
+// mês) — ver a proteção "sinatura de fallback" em fetchSheet mais abaixo.
 const MESES = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const MESES_PT = {JANEIRO:'Janeiro',FEVEREIRO:'Fevereiro',MARCO:'Março',ABRIL:'Abril',MAIO:'Maio',JUNHO:'Junho',JULHO:'Julho',AGOSTO:'Agosto',SETEMBRO:'Setembro',OUTUBRO:'Outubro',NOVEMBRO:'Novembro',DEZEMBRO:'Dezembro'};
 // Variações de grafia aceitas para cada mês ao buscar a aba na planilha
@@ -407,15 +433,6 @@ const MES_VARIANTES = {
 
 const MES_INDEX = Object.fromEntries(MESES.map((m,i) => [m,i]));
 
-// Verifica se o mês pedido está dentro do intervalo configurado pro vendedor
-// (mesInicio/mesFim, opcionais). Se estiver fora, nem vale a pena chamar a
-// rede — a planilha não tem essa aba mesmo.
-function mesDisponivelParaVendedor(vd, mes) {
-  const idx = MES_INDEX[mes];
-  if(vd.mesInicio && idx < MES_INDEX[vd.mesInicio]) return false;
-  if(vd.mesFim && idx > MES_INDEX[vd.mesFim]) return false;
-  return true;
-}
 // Meta padrão por vendedor (editável pelo dashboard, fica salvo automaticamente)
 const META_PADRAO = 50000;
 const STORAGE_KEY = 'a5eco_metas_v1';
@@ -495,29 +512,85 @@ const parseMoney = s => {
 const destroyChart = id => { if(charts[id]){ charts[id].destroy(); delete charts[id]; } };
 
 function getVendedor() { return document.getElementById('selVendedor').value; }
-function getMes()      { return document.getElementById('selMes').value; }
+
+// ── SELEÇÃO DE MESES (múltipla) ───────────────────────────────────
+let MESES_SELECIONADOS = []; // preenchido no INIT com o mês atual
+
+function getMesesSelecionados() {
+  return MESES.filter(m => MESES_SELECIONADOS.includes(m));
+}
+
+function labelMeses() {
+  const sel = getMesesSelecionados();
+  if(!sel.length) return 'Nenhum mês';
+  if(sel.length === MESES.length) return 'Todos os meses';
+  if(sel.length === 1) return MESES_PT[sel[0]];
+  if(sel.length <= 3) return sel.map(m => MESES_PT[m].slice(0,3)).join(' + ');
+  return `${sel.length} meses`;
+}
+
+function toggleMesDropdown(e) {
+  if(e) e.stopPropagation();
+  document.getElementById('mesDropdownPanel').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('mesDropdownPanel');
+  const btn = document.getElementById('btnMesDropdown');
+  if(panel && panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) {
+    panel.classList.remove('open');
+  }
+});
+
+function renderMesDropdownList() {
+  const list = document.getElementById('mesDropdownList');
+  if(!list) return;
+  list.innerHTML = MESES.map(m => `
+    <label class="mes-dropdown-item">
+      <input type="checkbox" value="${m}" ${MESES_SELECIONADOS.includes(m)?'checked':''} onchange="onMesCheckboxChange()">
+      ${MESES_PT[m]}
+    </label>`).join('');
+}
+
+function onMesCheckboxChange() {
+  const checks = document.querySelectorAll('#mesDropdownList input[type=checkbox]');
+  MESES_SELECIONADOS = Array.from(checks).filter(c => c.checked).map(c => c.value);
+  document.getElementById('mesDropdownLabel').textContent = labelMeses();
+  loadAll();
+}
+
+function selecionarTodosMeses() {
+  MESES_SELECIONADOS = [...MESES];
+  renderMesDropdownList();
+  document.getElementById('mesDropdownLabel').textContent = labelMeses();
+  loadAll();
+}
+
+function limparMeses() {
+  MESES_SELECIONADOS = [];
+  renderMesDropdownList();
+  document.getElementById('mesDropdownLabel').textContent = labelMeses();
+  loadAll();
+}
 
 function getData() {
   const v = getVendedor();
-  const m = getMes();
+  const meses = getMesesSelecionados();
+  const vendedoresUsar = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
   let rows = [];
-  if(v === 'all') {
-    VENDEDORES.forEach((vd,i) => {
+  vendedoresUsar.forEach(vd => {
+    meses.forEach(m => {
       const vrows = (allData[vd.nome] && allData[vd.nome][m]) || [];
-      rows = rows.concat(vrows.map(r => ({...r, _vendedor: vd.nome})));
+      rows = rows.concat(vrows.map(r => ({...r, _vendedor: vd.nome, _mes: m})));
     });
-  } else {
-    const vd = VENDEDORES[parseInt(v)];
-    rows = ((allData[vd.nome] && allData[vd.nome][m]) || []).map(r => ({...r, _vendedor: vd.nome}));
-  }
+  });
   return rows;
 }
 
 function getMeta() {
   const v = getVendedor();
-  const m = getMes();
-  if(v === 'all') return VENDEDORES.reduce((s,vd) => s + (METAS[vd.nome][m]||50000), 0);
-  return METAS[VENDEDORES[parseInt(v)].nome][m] || 50000;
+  const meses = getMesesSelecionados();
+  const vendedoresUsar = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
+  return vendedoresUsar.reduce((s,vd) => s + meses.reduce((s2,m) => s2 + (METAS[vd.nome][m]||50000), 0), 0);
 }
 
 // ── FETCH ─────────────────────────────────────────────────────────
@@ -543,30 +616,91 @@ async function fetchSheetRaw(sheetId, sheetName) {
   return json;
 }
 
-async function fetchSheet(sheetId, sheetName) {
-  // Tenta o nome exato primeiro e, se não achar dados, tenta variações comuns
-  // de grafia (maiúsculas/minúsculas/acentos) — resolve casos em que a aba
-  // de um vendedor específico foi nomeada de forma diferente dos demais.
-  // OBS: a proteção contra o fallback silencioso do Google (que devolve a
-  // primeira aba quando a pedida não existe) é feita ANTES disso, em
-  // mesDisponivelParaVendedor — aqui já assumimos que a aba deveria existir.
+// Busca por "gid" (id numérico da aba) em vez de nome. Diferente do "sheet="
+// por nome, um gid inválido dá erro de verdade — nada de fallback silencioso
+// pra primeira aba da planilha. É o jeito confiável de garantir que o mês
+// certo seja puxado.
+async function fetchSheetByGid(sheetId, gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${encodeURIComponent(gid)}`;
+  const res  = await fetch(url);
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text.replace(/^[^(]+\(/,'').replace(/\);\s*$/,''));
+  } catch(e) {
+    return null;
+  }
+  if(json.status === 'error') return null;
+  if(!json.table || !json.table.rows || !json.table.rows.length) return null;
+  return json;
+}
+
+// PROTEÇÃO GENÉRICA CONTRA O FALLBACK SILENCIOSO DO GOOGLE:
+// se você pede uma aba por nome que não existe, o Google não dá erro — ele
+// devolve por engano os dados da PRIMEIRA aba da planilha. Pra pegar isso
+// sem precisar saber de antemão quais meses cada vendedor tem, a gente
+// busca (uma vez por planilha, com cache) um nome de aba propositalmente
+// inexistente — o que quer que volte disso É a tal "primeira aba" (o
+// fallback). Depois, ao buscar um mês de verdade, se o resultado for
+// idêntico a esse fallback, tratamos como "esse mês não existe" em vez de
+// mostrar dado errado.
+const FALLBACK_SIG_CACHE = {};
+function sigDeTabela(json) {
+  return JSON.stringify((json && json.table && json.table.rows) || []);
+}
+async function getFallbackSignature(sheetId) {
+  if(FALLBACK_SIG_CACHE[sheetId] !== undefined) return FALLBACK_SIG_CACHE[sheetId];
+  let sig = null;
+  try {
+    const json = await fetchSheetRaw(sheetId, '__A5_PROBE_ABA_INEXISTENTE__');
+    sig = json ? sigDeTabela(json) : null;
+  } catch(e) {
+    sig = null;
+  }
+  FALLBACK_SIG_CACHE[sheetId] = sig;
+  return sig;
+}
+
+async function fetchSheet(vd, sheetName) {
+  const sheetId = vd.id;
+
+  // 1) Se esse vendedor tem o gid dessa aba configurado, usa ele — é
+  //    100% confiável, sem risco de puxar o mês errado.
+  const gid = vd.gids && vd.gids[sheetName];
+  if(gid) {
+    let json = null;
+    try { json = await fetchSheetByGid(sheetId, gid); } catch(e) { json = null; }
+    if(json) return parseSheetJson(json);
+    return [];
+  }
+
+  // 2) Sem gid: tenta pelo nome (com variações comuns de grafia), mas
+  //    descarta qualquer resposta que seja idêntica ao "fallback" (ou seja,
+  //    que não bateu de verdade com o mês pedido — o Google só devolveu a
+  //    primeira aba da planilha por engano).
+  const fallbackSig = await getFallbackSignature(sheetId);
   const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
   const tentadas = new Set();
   let json = null;
   for(const nomeTentativa of variantes) {
     if(tentadas.has(nomeTentativa)) continue;
     tentadas.add(nomeTentativa);
+    let candidato = null;
     try {
-      json = await fetchSheetRaw(sheetId, nomeTentativa);
+      candidato = await fetchSheetRaw(sheetId, nomeTentativa);
     } catch(e) {
-      json = null;
+      candidato = null;
     }
-    if(json) break;
+    if(candidato && fallbackSig !== null && sigDeTabela(candidato) === fallbackSig) {
+      candidato = null; // era só o fallback do Google, não a aba pedida de verdade
+    }
+    if(candidato) { json = candidato; break; }
   }
-  if(!json) {
-    console.warn(`[A5] Não encontrei dados para a aba "${sheetName}" na planilha ${sheetId} (tentei: ${[...tentadas].join(', ')}). Verifique se o nome da aba e o compartilhamento ("Qualquer pessoa com o link – Leitor") estão corretos.`);
-    return [];
-  }
+  if(!json) return []; // esse mês não existe (ou está vazio) pra esse vendedor — ignora, sem misturar
+  return parseSheetJson(json);
+}
+
+function parseSheetJson(json) {
 
   const colLabels = json.table.cols.map(c=>(c.label||'').trim().toLowerCase());
 
@@ -624,22 +758,23 @@ async function loadAll() {
   const btn = document.getElementById('btn-refresh');
   btn.classList.add('spinning');
 
-  const mes = getMes();
-  const promises = VENDEDORES.map(async vd => {
+  const meses = getMesesSelecionados();
+  const tarefas = [];
+  VENDEDORES.forEach(vd => {
     if(!allData[vd.nome]) allData[vd.nome] = {};
-    if(!mesDisponivelParaVendedor(vd, mes)) {
-      allData[vd.nome][mes] = []; // planilha desse vendedor não cobre esse mês
-      return;
-    }
-    try {
-      allData[vd.nome][mes] = await fetchSheet(vd.id, mes);
-    } catch(e) {
-      console.warn('Erro ao carregar', vd.nome, mes, e);
-      allData[vd.nome][mes] = [];
-    }
+    meses.forEach(mes => {
+      tarefas.push((async () => {
+        try {
+          allData[vd.nome][mes] = await fetchSheet(vd, mes);
+        } catch(e) {
+          console.warn('Erro ao carregar', vd.nome, mes, e);
+          allData[vd.nome][mes] = [];
+        }
+      })());
+    });
   });
 
-  await Promise.all(promises);
+  await Promise.all(tarefas);
   document.getElementById('last-sync').textContent = 'Sync: ' + new Date().toLocaleTimeString('pt-BR');
   btn.classList.remove('spinning');
   renderAll();
@@ -676,11 +811,17 @@ function renderPage(id) {
 function renderDashboard() {
   const rows = getData();
   const meta = getMeta();
-  const mes = getMes();
+  const mesesSel = getMesesSelecionados();
+  const mesUnico = mesesSel.length === 1 ? mesesSel[0] : null;
   const vLabel = getVendedor() === 'all' ? 'Todos os vendedores' : VENDEDORES[parseInt(getVendedor())].nome;
 
+  if(!mesesSel.length) {
+    document.getElementById('pg-dashboard').innerHTML = emptyHTML('📅','Nenhum mês selecionado','Escolha um ou mais meses no topo da página.');
+    return;
+  }
+
   if(!rows.length) {
-    document.getElementById('pg-dashboard').innerHTML = emptyHTML('📊','Sem dados para ' + MESES_PT[mes],'Verifique se as planilhas estão compartilhadas e têm dados para este mês.');
+    document.getElementById('pg-dashboard').innerHTML = emptyHTML('📊','Sem dados para ' + labelMeses(),'Verifique se as planilhas estão compartilhadas e têm dados para esse período.');
     return;
   }
 
@@ -697,20 +838,37 @@ function renderDashboard() {
   const topCanal = Object.entries(canais).sort((a,b)=>b[1]-a[1])[0]||['—',0];
 
   const diasMes = 30;
-  const metaDia = meta / diasMes;
   const metaSem = meta / 4;
+
+  const metaInputHTML = mesUnico
+    ? `<div class="meta-input-row">
+        <label>Meta R$</label>
+        <input type="number" id="db-meta-input" value="${meta}" oninput="saveMeta(this.value)">
+      </div>`
+    : `<div class="meta-sub" style="margin-top:.75rem;">Selecione um único mês pra editar a meta.</div>`;
+
+  const sprintsCardHTML = mesUnico
+    ? `<div class="section-title">Breakdown Semanal</div>
+       <div class="card">
+         <div class="card-title">Sprints — Meta semanal R$${fmt(metaSem)}</div>
+         <div id="db-sprints"></div>
+       </div>`
+    : `<div class="section-title">Breakdown Semanal</div>
+       <div class="card">
+         <div class="meta-sub">Selecione um único mês pra ver o detalhamento semanal (sprints).</div>
+       </div>`;
 
   document.getElementById('pg-dashboard').innerHTML = `
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Receita Total</div>
         <div class="stat-value green">R$${fmtK(rec).replace('R$','')}</div>
-        <div class="stat-sub">${MESES_PT[mes]} · ${vLabel}</div>
+        <div class="stat-sub">${labelMeses()} · ${vLabel}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Clientes</div>
         <div class="stat-value purple">${nClientes}</div>
-        <div class="stat-sub">fechamentos no mês</div>
+        <div class="stat-sub">fechamentos no período</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Ticket Médio</div>
@@ -726,7 +884,7 @@ function renderDashboard() {
 
     <div class="grid2" style="margin-bottom:1.2rem">
       <div class="card">
-        <div class="card-title">Meta do Mês</div>
+        <div class="card-title">Meta do Período</div>
         <div class="meta-header">
           <div class="meta-values">
             <strong>R$${fmt(rec)}</strong> <span style="opacity:.5">/</span> R$${fmt(meta)}
@@ -735,10 +893,7 @@ function renderDashboard() {
         </div>
         <div class="pb"><div class="pf" id="db-metabar" style="width:0%;background:var(--${metaColor === 'green' ? 'green' : metaColor === 'yellow' ? 'yellow' : 'red'});"></div></div>
         <div class="meta-sub">${pctMeta >= 100 ? '✓ Meta atingida!' : 'Faltam R$' + fmt(meta - rec)}</div>
-        <div class="meta-input-row">
-          <label>Meta R$</label>
-          <input type="number" id="db-meta-input" value="${meta}" oninput="saveMeta(this.value)">
-        </div>
+        ${metaInputHTML}
       </div>
       <div class="card">
         <div class="card-title">Funil de Conversão</div>
@@ -746,11 +901,7 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div class="section-title">Breakdown Semanal</div>
-    <div class="card">
-      <div class="card-title">Sprints — Meta semanal R$${fmt(metaSem)}</div>
-      <div id="db-sprints"></div>
-    </div>`;
+    ${sprintsCardHTML}`;
 
   // animate meta bar
   setTimeout(() => {
@@ -773,7 +924,9 @@ function renderDashboard() {
       <span class="funil-pct">${Math.round(val/rec*100)}%</span>
     </div>`).join('');
 
-  // sprints com valores manuais (cards colapsáveis)
+  // sprints com valores manuais (cards colapsáveis) — só faz sentido pra um único mês
+  if(!mesUnico) return;
+  const mes = mesUnico;
   const v = getVendedor();
   const vendedoresShow = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
   const sprintLabels = ['Sem 1 (1–7)','Sem 2 (8–14)','Sem 3 (15–21)','Sem 4 (22–30)'];
@@ -834,7 +987,9 @@ function saveSprint(nomeVendedor, mes, idx, val) {
 
 function saveMeta(val) {
   const v = getVendedor();
-  const m = getMes();
+  const mesesSel = getMesesSelecionados();
+  if(mesesSel.length !== 1) return; // edição só é permitida com um único mês selecionado
+  const m = mesesSel[0];
   const numVal = parseFloat(val) || 50000;
   if(v === 'all') {
     VENDEDORES.forEach(vd => METAS[vd.nome][m] = numVal / VENDEDORES.length);
@@ -847,29 +1002,34 @@ function saveMeta(val) {
 
 // ── METAS ────────────────────────────────────────────────────────
 function renderMetas() {
-  const mes = getMes();
+  const mesesSel = getMesesSelecionados();
+  const mesUnico = mesesSel.length === 1 ? mesesSel[0] : null;
   const v = getVendedor();
   const allRows = getData();
   const meta = getMeta();
   const rec = allRows.reduce((s,r) => s+r.val, 0);
-  const diasMes = 30;
-  const metaDia = meta / diasMes;
+  const diasMes = 30 * mesesSel.length;
+  const metaDia = diasMes ? meta / diasMes : 0;
   const metaSem = meta / 4;
-  const metaDiaColor = rec/(diasMes*0.5) >= metaDia ? 'green' : 'yellow';
 
   const vendedoresShow = v === 'all' ? VENDEDORES : [VENDEDORES[parseInt(v)]];
+
+  if(!mesesSel.length) {
+    document.getElementById('pg-metas').innerHTML = emptyHTML('📅','Nenhum mês selecionado','Escolha um ou mais meses no topo da página.');
+    return;
+  }
 
   document.getElementById('pg-metas').innerHTML = `
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-label">Meta Mensal</div>
+        <div class="stat-label">Meta do Período</div>
         <div class="stat-value purple">R$${fmtK(meta).replace('R$','')}</div>
-        <div class="stat-sub">${MESES_PT[mes]}</div>
+        <div class="stat-sub">${labelMeses()}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Meta Semanal</div>
         <div class="stat-value blue">R$${fmtK(metaSem).replace('R$','')}</div>
-        <div class="stat-sub">meta / 4 semanas</div>
+        <div class="stat-sub">${mesUnico ? 'meta do mês / 4 semanas' : 'meta total / 4 (referência)'}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Meta Diária</div>
@@ -883,14 +1043,20 @@ function renderMetas() {
       </div>
     </div>
 
-    <div class="section-title">Meta por Vendedor — ${MESES_PT[mes]}</div>
+    <div class="section-title">Meta por Vendedor — ${labelMeses()}</div>
     <div class="grid${vendedoresShow.length > 1 ? '3' : '2'}">
       ${vendedoresShow.map(vd => {
-        const vRows = (allData[vd.nome] && allData[vd.nome][mes]) || [];
+        const vRows = mesesSel.reduce((acc,m) => acc.concat((allData[vd.nome] && allData[vd.nome][m]) || []), []);
         const vRec = vRows.reduce((s,r) => s+r.val, 0);
-        const vMeta = METAS[vd.nome][mes] || 50000;
+        const vMeta = mesesSel.reduce((s,m) => s + (METAS[vd.nome][m]||50000), 0);
         const vPct = Math.min(Math.round(vRec/vMeta*100), 100);
         const vCl = vPct>=100?'b-green':vPct>=60?'b-yellow':'b-red';
+        const metaEditHTML = mesUnico
+          ? `<div class="meta-input-row">
+              <label>Meta</label>
+              <input type="number" value="${vMeta}" oninput="saveMetaVendedor('${vd.nome}','${mesUnico}',this.value)">
+            </div>`
+          : `<div class="meta-sub" style="margin-top:.6rem;">Selecione um único mês pra editar.</div>`;
         return `<div class="card">
           <div class="card-title">${vd.nome}</div>
           <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:.4rem;">R$${fmt(vRec)}</div>
@@ -900,16 +1066,15 @@ function renderMetas() {
             <span style="font-size:11px;color:var(--muted);">${vPct>=100?'✓ Meta atingida!':'Faltam R$'+fmt(vMeta-vRec)}</span>
             <span class="badge ${vCl}">${vPct}%</span>
           </div>
-          <div class="meta-input-row">
-            <label>Meta</label>
-            <input type="number" value="${vMeta}" oninput="saveMetaVendedor('${vd.nome}','${mes}',this.value)">
-          </div>
+          ${metaEditHTML}
         </div>`;
       }).join('')}
     </div>
 
-    <div class="section-title">Sprints Semanais — ${MESES_PT[mes]}</div>
+    ${mesUnico ? `
+    <div class="section-title">Sprints Semanais — ${labelMeses()}</div>
     ${vendedoresShow.map(vd => {
+      const mes = mesUnico;
       const vMeta = METAS[vd.nome][mes] || 50000;
       const vMetaSem = vMeta / 4;
       const spVals = distribuitSprints(vd.nome, mes);
@@ -952,7 +1117,9 @@ function renderMetas() {
         </div>
         <div class="sprint-block-body${collapsed?' collapsed':''}" id="spb-${key}">${body}</div>
       </div>`;
-    }).join('')}`;
+    }).join('')}` : `
+    <div class="section-title">Sprints Semanais</div>
+    <div class="card"><div class="meta-sub">Selecione um único mês pra ver e editar as sprints semanais.</div></div>`}`;
 }
 
 function saveMetaVendedor(nome, mes, val) {
@@ -1238,13 +1405,12 @@ VENDEDORES.forEach((vd, i) => {
   selVend.appendChild(opt);
 });
 
-// Set current month
+// Set current month (seleção inicial do dropdown de meses)
 const MONTH_MAP = {0:'JANEIRO',1:'FEVEREIRO',2:'MARCO',3:'ABRIL',4:'MAIO',5:'JUNHO',6:'JULHO',7:'AGOSTO',8:'SETEMBRO',9:'OUTUBRO',10:'NOVEMBRO',11:'DEZEMBRO'};
 const curMonthKey = MONTH_MAP[new Date().getMonth()];
-const selMes = document.getElementById('selMes');
-for(let i=0; i<selMes.options.length; i++){
-  if(selMes.options[i].value === curMonthKey){ selMes.selectedIndex=i; break; }
-}
+MESES_SELECIONADOS = [curMonthKey];
+renderMesDropdownList();
+document.getElementById('mesDropdownLabel').textContent = labelMeses();
 
 loadAll();
 setInterval(loadAll, 120000); // auto-refresh a cada 2min
