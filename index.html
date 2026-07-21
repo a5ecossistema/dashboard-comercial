@@ -514,6 +514,29 @@ const RE_EMAIL = /@/;
 const RE_CANAL = /org[aâ]nico|prospec|indica|meta|google|whats/i;
 const SKIP_NAME = /^(exemplo|nome|total|r\$|\d+$)/i;
 
+// IMPORTANTE: quando se pede ao Google Sheets (gviz) uma aba que não existe,
+// em vez de dar erro ele devolve silenciosamente os dados da PRIMEIRA aba da
+// planilha. Isso fazia um mês sem dados (ex: planilha que só começa em Julho)
+// "herdar" os números da primeira aba existente. Para evitar isso, antes de
+// buscar os dados a gente confirma a lista real de abas da planilha (via feed
+// de metadados) e só tenta buscar se a aba realmente existir.
+const SHEET_TITLES_CACHE = {};
+
+async function getSheetTitles(sheetId) {
+  if(SHEET_TITLES_CACHE[sheetId] !== undefined) return SHEET_TITLES_CACHE[sheetId];
+  try {
+    const url = `https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/basic?alt=json`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const entries = (json.feed && json.feed.entry) || [];
+    const titles = entries.map(e => ((e.title && e.title.$t) || '').trim()).filter(Boolean);
+    SHEET_TITLES_CACHE[sheetId] = titles.length ? titles : null;
+  } catch(e) {
+    SHEET_TITLES_CACHE[sheetId] = null; // não deu pra confirmar; segue com a tentativa direta
+  }
+  return SHEET_TITLES_CACHE[sheetId];
+}
+
 async function fetchSheetRaw(sheetId, sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res  = await fetch(url);
@@ -530,13 +553,26 @@ async function fetchSheetRaw(sheetId, sheetName) {
 }
 
 async function fetchSheet(sheetId, sheetName) {
-  // Tenta o nome exato primeiro e, se não achar dados, tenta variações comuns
-  // de grafia (maiúsculas/minúsculas/acentos) — resolve casos em que a aba
-  // de um vendedor específico foi nomeada de forma diferente dos demais.
   const variantes = [sheetName, ...(MES_VARIANTES[sheetName] || [])];
+
+  // 1) Confirma, pela lista real de abas, se esse mês existe nessa planilha.
+  //    Se a lista de abas foi obtida com sucesso e nenhuma bate com o mês
+  //    pedido, retorna vazio direto — sem isso, cairíamos no fallback
+  //    silencioso do Google (que devolve a primeira aba da planilha).
+  const titulos = await getSheetTitles(sheetId);
+  let tituloReal = null;
+  if(titulos) {
+    tituloReal = titulos.find(t => variantes.includes(t))
+      || titulos.find(t => variantes.some(v => v.toLowerCase() === t.toLowerCase()));
+    if(!tituloReal) return []; // planilha não tem esse mês ainda — não é erro
+  }
+
+  // 2) Busca os dados, usando o título exato confirmado (se encontrado) ou,
+  //    na falta de confirmação (feed indisponível), tenta as variações.
+  const tentar = tituloReal ? [tituloReal] : variantes;
   const tentadas = new Set();
   let json = null;
-  for(const nomeTentativa of variantes) {
+  for(const nomeTentativa of tentar) {
     if(tentadas.has(nomeTentativa)) continue;
     tentadas.add(nomeTentativa);
     try {
@@ -606,6 +642,10 @@ async function fetchSheet(sheetId, sheetName) {
 async function loadAll() {
   const btn = document.getElementById('btn-refresh');
   btn.classList.add('spinning');
+
+  // Limpa o cache de nomes de abas a cada atualização, assim uma aba nova
+  // criada agora (ex: o vendedor acabou de lançar o mês seguinte) já é vista.
+  Object.keys(SHEET_TITLES_CACHE).forEach(k => delete SHEET_TITLES_CACHE[k]);
 
   const mes = getMes();
   const promises = VENDEDORES.map(async vd => {
